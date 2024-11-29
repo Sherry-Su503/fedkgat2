@@ -1,0 +1,60 @@
+# config.yaml
+
+# General experiment settings
+experiment_name: "pytorch_training"
+job_id: "job_12345"
+script_path: "exp/"
+script_class_name: "TrainingScript"
+num_jobs_per_node: 1
+
+# Device configuration
+on_cuda: true
+python_path: "$HOME/conda/envs/pytorch-py3.6/bin/python"
+hostfile: "hostfile"
+world_conf: "0,0,1,1,100"
+
+# Model settings
+arch: "resnet20"
+complex_arch: "master=resnet20,worker=resnet8:resnet14"
+densenet_growth_rate: 12
+densenet_bc_mode: false
+wideresnet_widen_factor: 4
+
+# Training parameters
+batch_size: 256
+learning_rate: 0.01
+lr_scheduler: "MultiStepLR"
+lr_milestones: "30,60,90"
+lr_decay: 0.1
+lr_patience: 10
+early_stopping_rounds: 5
+n_epochs: 100
+
+# Optimizer settings
+optimizer: "sgd"
+momentum_factor: 0.9
+use_nesterov: false
+weight_decay: 5e-4
+
+# Federated Learning settings
+n_clients: 10
+participation_ratio: 0.1
+fl_aggregate: "avg"
+
+# Data settings
+train_data_path: "./data/train"
+test_data_path: "./data/test"
+use_mixup: false
+mixup_alpha: 1.0
+
+# Checkpoint settings
+checkpoint_path: "./checkpoints"
+checkpoint_index: null
+save_all_models: true
+save_some_models: "10,20,30"
+
+# Miscellaneous settings
+manual_seed: 42
+evaluate: false
+track_time: true
+summary_freq: 256

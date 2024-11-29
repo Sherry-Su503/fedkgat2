@@ -1,0 +1,8 @@
+node1 slots=4 gpus=2
+node2 slots=4 gpus=2
+node3 slots=4 gpus=2
+
+或者
+192.168.1.10 slots=4
+192.168.1.11 slots=4
+192.168.1.12 slots=4
