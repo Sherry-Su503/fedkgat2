@@ -334,6 +334,7 @@ class Master(object):
                 scatter_list.append(distribut_dict)
             else:
                 scatter_list.append(None)
+            self.conf.logger.log (f"\tMaster send the current model={client_arch} to process_id={worker_rank}")
         scatter_objects(scatter_list)
 
         self.last_comm_round = self.conf.graph.comm_round
@@ -468,6 +469,9 @@ class Master(object):
             for arch, _fedavg_model in fedavg_models.items():
                 # 表示将 _fedavg_model 的权重和偏置参数加载到 self.client_models[arch] 中的对应模型
                 self.client_models[arch].load_state_dict(_fedavg_model.state_dict())
+        self.conf.logger.log (
+            f"\tMaster finish aggregate the models."
+        )
 
 
     def _evaluate(self):

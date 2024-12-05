@@ -117,7 +117,7 @@ def add_argument():
         "--target_perf", type=float, default=None, help="it is between [0, 100]."
     )
     # 用于设置在达到早期停止条件时的最大回合数。如果模型在连续多个回合中没有性能提升，训练将提前停止。
-    parser.add_argument("--early_stopping_rounds", type=int, default=0)
+    parser.add_argument("--early_stopping_rounds", type=int, default=5)
     # 指定每个客户端本地训练的周期数（即每个客户端在参与联邦学习时本地训练的次数）。
     parser.add_argument("--local_n_epochs", type=int, default=1)
     # 每个客户端在开始本地训练时会随机重初始化模型
