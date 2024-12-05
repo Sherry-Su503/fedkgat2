@@ -23,11 +23,13 @@ class Worker(object):
         # some initializations.
         self.conf = conf
         self.rank = conf.graph.rank
-        conf.graph.worker_id = conf.graph.rank
+        conf.graph.worker_id = conf.graph.rank #当前进程的唯一标识
         self.conf.device = self.device = torch.device("cuda" if self.conf.graph.on_cuda else "cpu")
 
         # define the timer for different operations.
         # if we choose the `train_fast` mode, then we will not track the time.
+        # 配置conf.train_fast = True， 不跟踪时间
+        # 用于在训练过程中跟踪和记录操作的时间
         self.timer = Timer(
             verbosity_level=1 if conf.track_time and not conf.train_fast else 0,
             log_fn=conf.logger.log_metric,
@@ -50,10 +52,11 @@ class Worker(object):
             f"Worker-{self.conf.graph.worker_id} initialized the local training data with Master."
         )
 
-        # define the criterion.
+        # define the criterion.二进制交叉熵损失函数（BCELoss）
         self.criterion = nn.BCELoss()
 
         # define the model compression operators.
+        # conf.local_model_compression == None
         if conf.local_model_compression is not None:
             if conf.local_model_compression == "quantization":
                 self.model_compression_fn = compressor.ModelQuantization(conf)
@@ -86,6 +89,10 @@ class Worker(object):
         activation_msg=scatter_objects()[0]
         self.conf.graph.client_id, self.conf.graph.comm_round, self.n_local_epochs = activation_msg['client_id'], \
         activation_msg['comm_round'], activation_msg['local_epoch']
+        # print(f"Worker-{self.conf.graph.worker_id} activiated by Master in comm_round--{self.conf.graph.comm_round} epochs--{self.n_local_epochs} .")
+        # self.conf.logger.log (
+        #     f"Worker-{self.conf.graph.worker_id} activiated by Master in comm_round--{self.conf.graph.comm_round} epochs--{self.n_local_epochs} ."
+        # )
 
         # once we receive the signal, we init for the local training.
         pass
@@ -104,10 +111,11 @@ class Worker(object):
                 self.state_dict= self.model.state_dict()
             else:
                 self.model.load_state_dict(self.state_dict)
+            # 拆包（unpacking）：*self.input 表示将 output_list['embeddings'] 中的前 n-1 个元素赋值给 self.input
             *self.input, self.target = output_list['embeddings']
 
         self.conf.logger.log(
-            f"Worker-{self.conf.graph.worker_id} (client-{self.conf.graph.client_id}) received the model ({self.arch}) from Master."
+            f"Worker-{self.conf.graph.worker_id} (client-{self.conf.graph.client_id}) received the model ({output_list['model']}) and embedding from Master."
         )
         self.metrics = create_metrics.Metrics(self.model, task="null")
         # dist.monitored_barrier()
@@ -115,6 +123,9 @@ class Worker(object):
 
     def _train(self):
         if self.conf.graph.client_id != -1:
+            # KGCN_aggregator 继承自 torch.nn.Module，因此 model.train() 会：
+            # 设置 self.training=True。
+            # 递归地对所有子模块（如 self.aggregator）也调用 train()，从而切换所有子模块到训练模式。
             self.model.train()
 
             # init the model and dataloader.
@@ -140,9 +151,15 @@ class Worker(object):
 
             # refresh the logging cache at the end of each epoch.
             self.optimizer.zero_grad()
-            output = self.model(None, *self.input)
-            loss = self.criterion(output, self.target)
-            loss.backward()
+            # 调用 KGCN_aggregator.forward 方法
+            # output 是一个一维张量，大小为 self.batch_size。
+            # 它表示每个用户与其对应实体的预测相似度评分，范围在 [0, 1]
+            output = self.model(None, *self.input) #前向传播
+            # 前向传播（forward）时，input 中的嵌入向量不会改变，但它们会参与计算图构建，允许后续的梯度计算。
+            # 后向传播和优化器更新阶段，如果这些嵌入向量是可学习参数，它们的值可能会更新。
+            loss = self.criterion(output, self.target) #计算损失
+            loss.backward() #反向传播
+            # 由于在前向传播中设置了 requires_grad=True，在反向传播时，会计算损失相对于这些嵌入向量的梯度，并存储在 usr_embed.grad, ent_embed.grad, rel_embed.grad 中
 
             if self.conf.logger.meet_cache_limit():
                 self.conf.logger.save_json()
@@ -245,7 +262,7 @@ class Worker(object):
 
         gather_objects(gather_dict)
         self.conf.logger.log(
-            f"Worker-{self.conf.graph.worker_id} (client-{self.conf.graph.client_id}) sending the model ({self.arch}) back to Master."
+            f"Worker-{self.conf.graph.worker_id} (client-{self.conf.graph.client_id}) sending the model back to Master."
         )
         # dist.barrier()
 
