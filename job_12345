@@ -1,0 +1,3 @@
+./data/checkpoint/music/kgcn/fedKgcn_dataset_music_np_32_nc_64000/1732938582_l2-1e-05_lr-5e-05_n_comm_rounds-64000_local_n_epochs-1_batchsize-32_n_clients_1065_n_participated-32_optim-adam_agg_scheme-federated_average
+./data/checkpoint/book/kgcn/fedKgcn_dataset_book_np_32_nc_64000/1732939044_l2-2e-05_lr-0.0002_n_comm_rounds-64000_local_n_epochs-1_batchsize-32_n_clients_1113_n_participated-32_optim-adam_agg_scheme-federated_average
+./data/checkpoint/movie/kgcn/fedKgcn_dataset_movie_np_32_nc_64000/1732943425_l2-1e-07_lr-0.02_n_comm_rounds-64000_local_n_epochs-1_batchsize-32_n_clients_137728_n_participated-32_optim-adam_agg_scheme-federated_average

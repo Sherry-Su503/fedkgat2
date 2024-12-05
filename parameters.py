@@ -544,7 +544,7 @@ def experiment_paramenter(conf):
 # add debug environment
 def debug_parameter(conf):
     # debug
-    debug=True
+    debug=False
 
     # conf.data = 'book'
     if debug==True:
