@@ -677,20 +677,32 @@ class KGCN_kg(torch.nn.Module):
         # 梯度聚合：更新主模型（master_model）的梯度信息
         with torch.no_grad():
             for i, param in enumerate(self.parameters()):
+                print (
+                    f"Before aggregation - Param {i}: Grad mean: {param.grad.mean () if param.grad is not None else 'None'}")
                 param.grad=torch.zeros_like(param) # 梯度置零
             for user_id, grad in flatten_local_models.items():
                 usr_grad, ent_grad, rel_grad=grad['embeddings_grad']
                 model_grad= grad['model_grad']
+                # 打印累加前梯度
+                print (f"User {user_id}: Before accumulation - usr.weight.grad mean: {self.usr.weight.grad.mean ()}")
+                print (f"User {user_id}: Before accumulation - ent.weight.grad mean: {self.ent.weight.grad.mean ()}")
                 # 嵌入层的权重累加梯度：用户嵌入、实体嵌入、关系嵌入
                 self.usr.weight.grad[user_id] += usr_grad[0]
                 self.ent.weight.grad[self.id_map[user_id][0]] += ent_grad
                 self.rel.weight.grad[self.id_map[user_id][1]] += rel_grad
+                # 打印累加后梯度
+                print (f"User {user_id}: After accumulation - usr.weight.grad mean: {self.usr.weight.grad.mean ()}")
+                print (f"User {user_id}: After accumulation - ent.weight.grad mean: {self.ent.weight.grad.mean ()}")
                 # 聚合器参数梯度累加
                 for i, param in enumerate(self.aggregator.parameters()):
+                    print (f"Aggregator Param {i}: Before accumulation - Grad mean: {param.grad.mean ()}")
                     param.grad += model_grad[i]
+                    print (f"Aggregator Param {i}: After accumulation - Grad mean: {param.grad.mean ()}")
             # 前面累加之后，这里对所有参数求平均
             for param in self.parameters():
+                print (f"Before averaging - Grad mean: {param.grad.mean ()}")
                 param.grad/=len(flatten_local_models)
+                print (f"After averaging - Grad mean: {param.grad.mean ()}")
     def recode_grad_by_trainning_num(self, flatten_local_models):
         with torch.no_grad():
             for i, param in enumerate(self.parameters()):

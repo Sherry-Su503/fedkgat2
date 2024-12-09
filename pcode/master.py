@@ -328,8 +328,8 @@ class Master(object):
                 else:
                     distribut_dict['model']=None
 
-                # 获取selected_client_id客户端（用户）的嵌入信息：包含：user_embedding,entity_embedding,relation_embedding,entities,relations,taget(该user所有交互项的标签列表）
-#                 报错！！！！
+                # 获取selected_client_id客户端（用户）的嵌入信息：包含：user_embeddings, entities, entity_embeddings,
+                #relations, relation_embeddings, target(该user所有交互项的标签列表）
                 distribut_dict['embeddings'] =self.master_model._get_embeddings(selected_client_id, self.dataset["train"], self.conf.local_batch_size)
                 scatter_list.append(distribut_dict)
             else:
@@ -405,7 +405,13 @@ class Master(object):
                                               weight_decay=self.conf.weight_decay)
         if same_arch:
             # TODO: 如何处理grad
+            # 打印参数更新前的状态
+            for i, param in enumerate (self.parameters ()):
+                print (
+                    f"Before optimizer step - Param {i}: Value mean: {param.data.mean ()} Grad mean: {param.grad.mean ()}")
             self.optimizer.step() # 根据累加后的梯度，更新主模型的参数
+            for i, param in enumerate (self.parameters ()):
+                print (f"After optimizer step - Param {i}: Value mean: {param.data.mean ()}")
             self.optimizer.zero_grad(set_to_none=False)# 清空梯度
             fedavg_model = copy.deepcopy(self.master_model.aggregator) #深拷贝主模型的聚合器
             fedavg_models = {'kgcn_aggregate': fedavg_model}
