@@ -114,9 +114,9 @@ class Worker(object):
             # 拆包（unpacking）：*self.input 表示将 output_list['embeddings'] 中的前 n-1 个元素赋值给 self.input
             *self.input, self.target = output_list['embeddings']
 
-        self.conf.logger.log(
-            f"Worker-{self.conf.graph.worker_id} (client-{self.conf.graph.client_id}) received the model ({output_list['model']}) and embedding from Master."
-        )
+        # self.conf.logger.log(
+        #     f"Worker-{self.conf.graph.worker_id} (client-{self.conf.graph.client_id}) received the model ({output_list['model']}) and embedding from Master."
+        # )
         self.metrics = create_metrics.Metrics(self.model, task="null")
         # dist.monitored_barrier()
 
