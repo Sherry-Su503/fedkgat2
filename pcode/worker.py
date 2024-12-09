@@ -89,11 +89,10 @@ class Worker(object):
         activation_msg=scatter_objects()[0]
         self.conf.graph.client_id, self.conf.graph.comm_round, self.n_local_epochs = activation_msg['client_id'], \
         activation_msg['comm_round'], activation_msg['local_epoch']
-        print('Worker')
-        print(f"Worker-{self.conf.graph.worker_id} activiated by Master in comm_round--{self.conf.graph.comm_round} epochs--{self.n_local_epochs} .")
-        conf.logger.log (
-            f"Worker-{self.conf.graph.worker_id} activiated by Master in comm_round--{self.conf.graph.comm_round} epochs--{self.n_local_epochs} ."
-        )
+        # print(f"Worker-{self.conf.graph.worker_id} activiated by Master in comm_round--{self.conf.graph.comm_round} epochs--{self.n_local_epochs} .")
+        # self.conf.logger.log (
+        #     f"Worker-{self.conf.graph.worker_id} activiated by Master in comm_round--{self.conf.graph.comm_round} epochs--{self.n_local_epochs} ."
+        # )
 
         # once we receive the signal, we init for the local training.
         pass
@@ -116,7 +115,7 @@ class Worker(object):
             *self.input, self.target = output_list['embeddings']
 
         self.conf.logger.log(
-            f"Worker-{self.conf.graph.worker_id} (client-{self.conf.graph.client_id}) received the model ({self.arch}) and embedding from Master."
+            f"Worker-{self.conf.graph.worker_id} (client-{self.conf.graph.client_id}) received the model ({output_list['model']}) and embedding from Master."
         )
         self.metrics = create_metrics.Metrics(self.model, task="null")
         # dist.monitored_barrier()
@@ -264,7 +263,7 @@ class Worker(object):
 
         gather_objects(gather_dict)
         self.conf.logger.log(
-            f"Worker-{self.conf.graph.worker_id} (client-{self.conf.graph.client_id}) sending the model ({self.arch}) back to Master."
+            f"Worker-{self.conf.graph.worker_id} (client-{self.conf.graph.client_id}) sending the model back to Master."
         )
         # dist.barrier()
 
