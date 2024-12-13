@@ -145,22 +145,22 @@ class Worker(object):
                                               weight_decay=self.conf.weight_decay)
             # self.scheduler = create_scheduler.Scheduler(self.conf, optimizer=self.optimizer)
             # self.tracker = RuntimeTracker(metrics_to_track=self.metrics.metric_names)
-            self.conf.logger.log(
-                f"Worker-{self.conf.graph.worker_id} (client-{self.conf.graph.client_id}) enters the local training phase (current communication rounds={self.conf.graph.comm_round})."
-            )
-
-            # refresh the logging cache at the end of each epoch.
-            self.optimizer.zero_grad()
-            # 调用 KGCN_aggregator.forward 方法
-            # output 是一个一维张量，大小为 self.batch_size。
-            # 它表示每个用户与其对应实体的预测相似度评分，范围在 [0, 1]
-            output = self.model(None, *self.input) #前向传播
-            # 前向传播（forward）时，input 中的嵌入向量不会改变，但它们会参与计算图构建，允许后续的梯度计算。
-            # 后向传播和优化器更新阶段，如果这些嵌入向量是可学习参数，它们的值可能会更新。
-            print(f"对模型输出--{output}和真实标签self.target--{self.target}计算损失.")
-            loss = self.criterion(output, self.target) #计算损失
-            loss.backward() #反向传播
-            # 由于在前向传播中设置了 requires_grad=True，在反向传播时，会计算损失相对于这些嵌入向量的梯度，并存储在 usr_embed.grad, ent_embed.grad, rel_embed.grad 中
+            # self.conf.logger.log(
+            #     f"Worker-{self.conf.graph.worker_id} (client-{self.conf.graph.client_id}) enters the local training phase (current communication rounds={self.conf.graph.comm_round} n_local_epochs={self.n_local_epochs})."
+            # )
+            for epoch in range(self.n_local_epochs):
+                # refresh the logging cache at the end of each epoch.
+                self.optimizer.zero_grad()
+                # 调用 KGCN_aggregator.forward 方法
+                # output 是一个一维张量，大小为 self.batch_size。
+                # 它表示每个用户与其对应实体的预测相似度评分，范围在 [0, 1]
+                output = self.model(None, *self.input) #前向传播
+                # 前向传播（forward）时，input 中的嵌入向量不会改变，但它们会参与计算图构建，允许后续的梯度计算。
+                # 后向传播和优化器更新阶段，如果这些嵌入向量是可学习参数，它们的值可能会更新。
+                # print(f"对模型输出--{output}和真实标签self.target--{self.target}计算损失.")
+                loss = self.criterion(output, self.target) #计算损失
+                loss.backward() #反向传播
+                # 由于在前向传播中设置了 requires_grad=True，在反向传播时，会计算损失相对于这些嵌入向量的梯度，并存储在 usr_embed.grad, ent_embed.grad, rel_embed.grad 中
 
             if self.conf.logger.meet_cache_limit():
                 self.conf.logger.save_json()
@@ -256,15 +256,16 @@ class Worker(object):
             # flatten_model = TensorBuffer(list(self.model.state_dict().values()))
             gather_dict['model_grad']=[param.grad.to(comm_device) for param in self.model.parameters()]
 
+            # user_embed,ent_emded,rel_embed的梯度
             gather_dict['embeddings_grad']=[self.input[0].grad.to(comm_device), self.input[2].grad.to(comm_device),
                             self.input[4].grad.to(comm_device)] if self.conf.graph.client_id != -1 else [None] * 3
         else:
             gather_dict=None
 
         gather_objects(gather_dict)
-        self.conf.logger.log(
-            f"Worker-{self.conf.graph.worker_id} (client-{self.conf.graph.client_id}) sending the model back to Master."
-        )
+        # self.conf.logger.log(
+        #     f"Worker-{self.conf.graph.worker_id} (client-{self.conf.graph.client_id}) sending the model back to Master."
+        # )
         # dist.barrier()
 
 

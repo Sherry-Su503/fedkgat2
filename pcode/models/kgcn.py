@@ -61,6 +61,8 @@ class Aggregator(torch.nn.Module):
 
         # [batch_size, -1, n_neighbor, dim] -> [batch_size, -1, n_neighbor]
         # 计算用户与邻居之间的关系得分
+        # print('user_embeddings',user_embeddings.shape)
+        # print('neighbor_relations',neighbor_relations.shape)
         user_relation_scores = (user_embeddings * neighbor_relations).sum(dim=-1)
         user_relation_scores_normalized = F.softmax(user_relation_scores, dim=-1) #归一化
 
@@ -604,22 +606,33 @@ class KGCN_kg(torch.nn.Module):
             item_ids = item_ids.clone().reshape((-1, 1))
             # [batch_size, dim]
 
-            # user_id通过嵌入层，得到用户嵌入向量
+            # user_id通过嵌入层，得到用户嵌入矩阵[1,dim]
             user_embeddings = self.usr(torch.tensor([user_id]))
-
+            # print('item_ids-----------',item_ids)
             entities, relations = self._get_neighbors(item_ids)  # 对每一个user-item的item,取item的n_iter层邻居
-
+            # print('entities1-----------',entities)
             entity_set = torch.concat([entity.unique() for entity in entities]).unique()
             entity_map = {int(entity): i for i, entity in enumerate(entity_set)}
-            entities = [entity.map_(entity, lambda x, y: entity_map[x]) for entity in entities]
+            # for entity in entities:
+            #     print(entity,entity.shape)
+            
+            entities = [entity.map_(entity, lambda x, y: entity_map[x]) for entity in entities] 
+            # for entity in entities:
+            #     print(entity,entity.shape)
+            # print('entity_set-----------',entity_set)
+            # print('entities2-----------',entities)
+#             形状为 (N, d) 的张量，其中 N 是实体的数量，d 是嵌入向量的维度。
             entity_embeddings = torch.vstack([self.ent(entity) for entity in entity_set])
+            # entity_embeddings = torch.vstack([self.ent(entity) for entity in entities])
 
             relation_set = torch.concat([relation.unique() for relation in relations]).unique()
             relation_map = {int(relation): i for i, relation in enumerate(relation_set)}
             relations = [relation.map_(relation, lambda x, y: relation_map[x]) for relation in relations]
             relation_embeddings = torch.vstack([self.rel(relation) for relation in relation_set])
+            # relation_embeddings = torch.vstack([self.rel(relation) for relation in relations])
 
             self.id_map[user_id] = [list(entity_map.keys()), list(relation_map.keys())]
+            # print('entity_embeddings',entity_embeddings)
             return [user_embeddings, entities, entity_embeddings,
                     relations, relation_embeddings, target]
 
@@ -653,8 +666,31 @@ class KGCN_kg(torch.nn.Module):
             self.batch_size = item_ids.size(0)
             item_ids = item_ids.reshape((-1, 1))
             # [batch_size, dim]
-            entities, relations = self._get_neighbors(item_ids)
-            return self.aggregator(user_ids, self.usr.weight, entities, self.ent.weight, relations, self.rel.weight)
+            user_ids = user_ids.view((-1, 1))
+            user_embeddings = self.usr(user_ids)
+            # print('test-----user_embeddings',user_embeddings.shape)
+            entities, relations = self._get_neighbors(item_ids)  # 对每一个user-item的item,取item的n_iter层邻居
+
+            entity_set = torch.concat([entity.unique() for entity in entities]).unique()
+            entity_map = {int(entity): i for i, entity in enumerate(entity_set)}
+            # print('entities1-----------',entities)
+            # print('entity_set-----------',entity_set)
+            
+            entities = [entity.to('cpu') for entity in entities]
+            entities = [entity.map_(entity, lambda x, y: entity_map[x]) for entity in entities] 
+            # print('entities2-----------',entities)
+            entity_embeddings = torch.vstack([self.ent(entity) for entity in entity_set])
+            # entity_embeddings = torch.vstack([self.ent(entity) for entity in entities])
+
+            relation_set = torch.concat([relation.unique() for relation in relations]).unique()
+            relation_map = {int(relation): i for i, relation in enumerate(relation_set)}
+            relations = [relation.to('cpu') for relation in relations]
+            relations = [relation.map_(relation, lambda x, y: relation_map[x]) for relation in relations]
+            # relations = [relation.to('cpu') for relation in relations]
+            relation_embeddings = torch.vstack([self.rel(relation) for relation in relation_set])
+            torch.cuda.empty_cache()
+
+            return self.aggregator(user_ids, user_embeddings, entities, entity_embeddings, relations, relation_embeddings)
 
     def _get_neighbors(self, v):
         '''
@@ -670,6 +706,10 @@ class KGCN_kg(torch.nn.Module):
             neighbor_relations = self.adj_rel[entities[h]].reshape((self.batch_size, -1))
             entities.append(neighbor_entities)
             relations.append(neighbor_relations)
+            
+        # print('_get_neighbors--itemIds', v)
+        # print('_get_neighbors--entities',entities)
+        # print('_get_neighbors--relations',relations)
 
         return entities, relations
 
@@ -677,32 +717,37 @@ class KGCN_kg(torch.nn.Module):
         # 梯度聚合：更新主模型（master_model）的梯度信息
         with torch.no_grad():
             for i, param in enumerate(self.parameters()):
-                print (
-                    f"Before aggregation - Param {i}: Grad mean: {param.grad.mean () if param.grad is not None else 'None'}")
+                # print (
+                    # f"Before aggregation - Param {i}: Grad mean: {param.grad.mean () if param.grad is not None else 'None'}")
                 param.grad=torch.zeros_like(param) # 梯度置零
             for user_id, grad in flatten_local_models.items():
                 usr_grad, ent_grad, rel_grad=grad['embeddings_grad']
                 model_grad= grad['model_grad']
+                 # 打印客户端前梯度
+                # print (f"from Client{user_id} - usr_grad mean: {usr_grad.mean ()}")
+                # print (f"from Client{user_id} - ent_grad mean: {usr_grad.mean ()}")
+                # print (f"from Client{user_id} - rel_grad mean: {rel_grad.mean ()}")
+                # print (f"from Client{user_id} - model_grad: {model_grad}")
                 # 打印累加前梯度
-                print (f"User {user_id}: Before accumulation - usr.weight.grad mean: {self.usr.weight.grad.mean ()}")
-                print (f"User {user_id}: Before accumulation - ent.weight.grad mean: {self.ent.weight.grad.mean ()}")
+                # print (f"User {user_id}: Before accumulation - usr.weight.grad mean: {self.usr.weight.grad.mean ()}")
+                # print (f"User {user_id}: Before accumulation - ent.weight.grad mean: {self.ent.weight.grad.mean ()}")
                 # 嵌入层的权重累加梯度：用户嵌入、实体嵌入、关系嵌入
                 self.usr.weight.grad[user_id] += usr_grad[0]
                 self.ent.weight.grad[self.id_map[user_id][0]] += ent_grad
                 self.rel.weight.grad[self.id_map[user_id][1]] += rel_grad
                 # 打印累加后梯度
-                print (f"User {user_id}: After accumulation - usr.weight.grad mean: {self.usr.weight.grad.mean ()}")
-                print (f"User {user_id}: After accumulation - ent.weight.grad mean: {self.ent.weight.grad.mean ()}")
+                # print (f"User {user_id}: After accumulation - usr.weight.grad mean: {self.usr.weight.grad.mean ()}")
+                # print (f"User {user_id}: After accumulation - ent.weight.grad mean: {self.ent.weight.grad.mean ()}")
                 # 聚合器参数梯度累加
                 for i, param in enumerate(self.aggregator.parameters()):
-                    print (f"Aggregator Param {i}: Before accumulation - Grad mean: {param.grad.mean ()}")
+                    # print (f"Aggregator Param {i}: Before accumulation - Grad mean: {param.grad.mean ()}")
                     param.grad += model_grad[i]
-                    print (f"Aggregator Param {i}: After accumulation - Grad mean: {param.grad.mean ()}")
+                    # print (f"Aggregator Param {i}: After accumulation - Grad mean: {param.grad.mean ()}")
             # 前面累加之后，这里对所有参数求平均
             for param in self.parameters():
-                print (f"Before averaging - Grad mean: {param.grad.mean ()}")
+                # print (f"Before averaging - Grad mean: {param.grad.mean ()}")
                 param.grad/=len(flatten_local_models)
-                print (f"After averaging - Grad mean: {param.grad.mean ()}")
+                # print (f"After averaging - Grad mean: {param.grad.mean ()}")
     def recode_grad_by_trainning_num(self, flatten_local_models):
         with torch.no_grad():
             for i, param in enumerate(self.parameters()):
@@ -760,7 +805,9 @@ class KGCN_aggregator(torch.nn.Module):
         self.batch_size = len(ent_id[0])
         if usr_id is None:
             usr_id = [0] * self.batch_size
-        user_embeddings = usr_embed[usr_id] #根据用户 ID 获取对应的用户嵌入
+        # user_embeddings = usr_embed[usr_id] #根据用户 ID 获取对应的用户嵌入
+        user_embeddings = usr_embed.squeeze(dim = 1) 
+        
         entities_embeddings = [ent_embed[entity] for entity in ent_id] #为每个实体 ID 查找对应的实体嵌入。
         relations_embeddings = [rel_embed[relation] for relation in rel_id] #为每个关系 ID 查找对应的关系嵌入。
         # 调用 _aggregate 方法，将用户、实体和关系的嵌入作为输入，进行多次聚合，生成新的实体嵌入。

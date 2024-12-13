@@ -8,6 +8,7 @@ import torch
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from torch.utils import data
+import os
 
 
 class RecommendationDS(data.Dataset):
@@ -20,7 +21,7 @@ class RecommendationDS(data.Dataset):
         if not self.preprocessed_data_path.exists():  # music
 
             self.cfg = {
-                'movie': {
+               'movie': {
                     'item2id_path': 'data/movie/item_index2entity_id.txt',
                     'kg_path': 'data/movie/kg.txt',
                     'rating_path': 'data/movie/ratings.csv',
@@ -37,40 +38,40 @@ class RecommendationDS(data.Dataset):
                 'book': {
                     'item2id_path': 'data/book/item_index2entity_id_rehashed.txt',
                     'kg_path': 'data/book/kg_rehashed.txt',
-                    'rating_path': 'data/book/BX-Book-Ratings.csv',
+                    'rating_path': 'data/BX-Book-Ratings.csv',
                     'rating_sep': ';',
                     'threshold': 0.0
                 }
             }
             self.data = data
             self.test_ratio = 0.2
-            # 数据加载和预处理
+            # # 数据加载和预处理
             df_item2id = pd.read_csv(self.cfg[data]['item2id_path'], sep='\t', header=None, names=['item', 'id'])
             df_kg = pd.read_csv(self.cfg[data]['kg_path'], sep='\t', header=None, names=['head', 'relation', 'tail'])
             df_rating = pd.read_csv(self.cfg[data]['rating_path'], sep=self.cfg[data]['rating_sep'],
                                     names=['userID', 'itemID', 'rating'],skiprows=1)
-            print(df_rating['userID'].nunique())
+            # print(df_rating['userID'].nunique())
             # df_rating['itemID'] and df_item2id['item'] both represents old entity ID
             # 数据清洗与处理
             df_rating = df_rating[df_rating['itemID'].isin(df_item2id['item'])]  # 只取item2id里存在的item
             df_rating= df_rating.groupby('userID').filter(lambda x: len(x) > 10)  # 只保留那些评分项目数大于 10 的用户，保证每个用户有足够的评分数据进行训练
             df_rating.reset_index(inplace=True, drop=True)
-
-
+            
+            
             self.df_item2id = df_item2id  # item和id的对应关系
             self.df_kg = df_kg  # 知识图谱
             self.df_rating = df_rating  # 只包含对应关系item的购买记录 pd(user,item,rating)
-            print('self.df_rating')
-            print(self.df_rating.info())
-            print( self.df_rating["userID"].apply(type).unique())
-            print(self.df_rating['userID'].nunique())
+            # print('self.df_rating')
+            # print(self.df_rating.info())
+            # print( self.df_rating["userID"].apply(type).unique())
+            # print(self.df_rating['userID'].nunique())
             
             self.user_encoder = LabelEncoder()# 拟合用户 ID 列，将所有用户的 ID 转换为整数编码。
             self.entity_encoder = LabelEncoder()
             self.relation_encoder = LabelEncoder()
-
+            
             self._encoding()
-
+            
             kg = self._construct_kg()  # {head: (relation,tails)} 无向图，正反同关系
             df_dataset = self._build_dataset()
             # print('df_dataset')
@@ -94,6 +95,10 @@ class RecommendationDS(data.Dataset):
             # print(train_set.head())
             # print(train_set["userID"].apply(type).unique())
             print('num_user ', num_user)
+
+            print ('--------------------num_user ', num_user)
+            print ( '---------------------num_entity ',num_entity)
+            print ( '---------------------num_relation ',num_relation)
             
             torch.save(
                 {'train_set': train_set, 'test_set': test_set, 'kg': kg, 'num_user': num_user, 'num_entity': num_entity,
@@ -104,6 +109,7 @@ class RecommendationDS(data.Dataset):
             train_set, test_set = preprocessed_data['train_set'], preprocessed_data['test_set']
 
 
+        # breakpoint()
         # 为每个用户生成索引，便于快速查找该用户对应的评分记录
         self.df = train_set if train else test_set
         self.idx = self.df.index
@@ -117,7 +123,6 @@ class RecommendationDS(data.Dataset):
         # print(self.df["userID"].unique())  # 查看所有唯一值
         # print(self.df["userID"].max ())
         self.user_num = self.df["userID"].max () + 1
-        print('self.user_num------------------- ', self.user_num)
         for user_id in range(self.user_num):
             self.index[user_id] = self.df[self.df.userID == user_id].index
 
@@ -137,6 +142,7 @@ class RecommendationDS(data.Dataset):
         self.df_kg['tail'] = self.entity_encoder.transform(self.df_kg['tail'])
         self.df_kg['relation'] = self.relation_encoder.transform(self.df_kg['relation'])
 
+    
     def _build_dataset(self):
         '''
         Build dataset for training (rating data)

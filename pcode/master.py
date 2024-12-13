@@ -132,6 +132,7 @@ class Master(object):
             test_loader, _ = create_dataset.define_data_loader(
                 conf, self.dataset["test"], is_train=False
             )
+            print('self.dataset["test"]',self.dataset["test"])
             self.test_loaders = [test_loader]
 
     def init_parameters(self, conf):
@@ -225,7 +226,7 @@ class Master(object):
             for i, (client_ids, local_n_epoch) in enumerate(zip(selected_client_ids, list_of_local_n_epochs)):
 
                 # detect early stopping.检测是否满足早停条件，如果满足则提前结束训练
-                self._check_early_stopping()
+                # self._check_early_stopping()
                 # get current workers' client id.
 
                 # init the activation tensor and broadcast to all clients (either start or stop).激活当前选定的客户端
@@ -334,7 +335,7 @@ class Master(object):
                 scatter_list.append(distribut_dict)
             else:
                 scatter_list.append(None)
-            self.conf.logger.log (f"\tMaster send the current model={client_arch} to process_id={worker_rank}")
+            # self.conf.logger.log (f"\tMaster send the current model={client_arch} to process_id={worker_rank}")
         scatter_objects(scatter_list)
 
         self.last_comm_round = self.conf.graph.comm_round
@@ -406,12 +407,12 @@ class Master(object):
         if same_arch:
             # TODO: 如何处理grad
             # 打印参数更新前的状态
-            for i, param in enumerate (self.parameters ()):
-                print (
-                    f"Before optimizer step - Param {i}: Value mean: {param.data.mean ()} Grad mean: {param.grad.mean ()}")
+            # for i, param in enumerate (self.master_model.parameters ()):
+            #     print (
+            #         f"Before optimizer step - Param {i}: Value mean: {param.data.mean ()} Grad mean: {param.grad.mean ()}")
             self.optimizer.step() # 根据累加后的梯度，更新主模型的参数
-            for i, param in enumerate (self.parameters ()):
-                print (f"After optimizer step - Param {i}: Value mean: {param.data.mean ()}")
+            # for i, param in enumerate (self.master_model.parameters ()):
+            #     print (f"After optimizer step - Param {i}: Value mean: {param.data.mean ()}")
             self.optimizer.zero_grad(set_to_none=False)# 清空梯度
             fedavg_model = copy.deepcopy(self.master_model.aggregator) #深拷贝主模型的聚合器
             fedavg_models = {'kgcn_aggregate': fedavg_model}
