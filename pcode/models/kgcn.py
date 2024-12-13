@@ -22,11 +22,17 @@ class Aggregator(torch.nn.Module):
         self.batch_size = batch_size
         self.dim = dim  # 16
         # 根据 aggregator 的选择，初始化了不同的 Linear 层
-        if aggregator == 'concat':
-            self.weights = torch.nn.Linear(2 * dim, dim, bias=True) #当前节点和邻居节点特征拼接
-        else:
-            self.weights = torch.nn.Linear(dim, dim, bias=True)
+        # if aggregator == 'concat':
+        #     self.weights = torch.nn.Linear(2 * dim, dim, bias=True) #当前节点和邻居节点特征拼接
+        # else:
+        #     self.weights = torch.nn.Linear(dim, dim, bias=True)
         self.aggregator = aggregator
+        #---------------------------------------kgcn
+        self.dropout = dropout
+        # Xavier初始化权重
+        self.weights = torch.nn.Linear (self.dim, self.dim, bias=True)
+        torch.nn.init.xavier_uniform_ (self.weights.weight)  # Xavier初始化
+        self.bias = torch.nn.Parameter (torch.zeros (self.dim))
 
     def forward(self, self_vectors, neighbor_vectors, neighbor_relations, user_embeddings, act):
         # 前向传播函数,act：激活函数（如 ReLU、Sigmoid 等）
@@ -48,7 +54,8 @@ class Aggregator(torch.nn.Module):
         else:
             output = neighbors_agg.reshape((-1, self.dim)) # 只使用聚合后的邻居特征
 
-        output = self.weights(output) #使用 self.weights（Linear 层）对聚合后的特征进行线性变换，调整特征的维度
+        output = self.weights (output) + self.bias
+        # output = self.weights(output) #使用 self.weights（Linear 层）对聚合后的特征进行线性变换，调整特征的维度
         # 使用提供的激活函数 act 对输出进行激活处理
         return act(output.reshape((self.batch_size, -1, self.dim)))
 
@@ -666,6 +673,7 @@ class KGCN_kg(torch.nn.Module):
             self.batch_size = item_ids.size(0)
             item_ids = item_ids.reshape((-1, 1))
             # [batch_size, dim]
+<<<<<<< HEAD
             user_ids = user_ids.view((-1, 1))
             user_embeddings = self.usr(user_ids)
             # print('test-----user_embeddings',user_embeddings.shape)
@@ -691,6 +699,10 @@ class KGCN_kg(torch.nn.Module):
             torch.cuda.empty_cache()
 
             return self.aggregator(user_ids, user_embeddings, entities, entity_embeddings, relations, relation_embeddings)
+=======
+            entities, relations = self._get_neighbors(item_ids)
+            return self.aggregator.forward(user_ids, self.usr.weight, entities, self.ent.weight, relations, self.rel.weight)
+>>>>>>> 016c121bb078798dd91f38c663d7d854fb537601
 
     def _get_neighbors(self, v):
         '''
@@ -829,7 +841,7 @@ class KGCN_aggregator(torch.nn.Module):
 
             entity_vectors_next_iter = []
             for hop in range(self.n_iter - i):
-                vector = self.aggregator(
+                vector = self.aggregator.forward(
                     self_vectors=entity_embeddings[hop], #每次迭代生成新的实体嵌入，并将其传递给下一次迭代
                     neighbor_vectors=entity_embeddings[hop + 1].reshape(
                         (self.batch_size, -1, self.n_neighbor, self.dim)),
