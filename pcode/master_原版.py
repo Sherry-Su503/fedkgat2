@@ -321,10 +321,17 @@ class Master(object):
             # transfer parameters if new comm_round and client arch not changed.
             distribut_dict = {}
             if selected_client_id != -1:
-                distribut_dict['model'] = self.master_model
-                item_ids, targets = self.master_model._get_items(selected_client_id, self.dataset["train"], self.conf.local_batch_size)
-                entities,relations = self.master_model._get_neighbors(item_ids)
-                distribut_dict['input'] = [entities,relations,targets]
+                # client_arch = self.clientid2arch[selected_client_id]
+                # # send the model if the worker_arch is different from the last comm_round.
+                # if self.last_comm_round != self.conf.graph.comm_round or self.worker_archs[worker_rank] !=client_arch:
+                #     self.worker_archs[worker_rank] = client_arch
+                #     distribut_dict['model']=self.client_models[client_arch]
+                # else:
+                #     distribut_dict['model']=None
+
+                # 获取selected_client_id客户端（用户）的嵌入信息：包含：user_embeddings, entities, entity_embeddings,
+                #relations, relation_embeddings, target(该user所有交互项的标签列表）
+                distribut_dict['embeddings'] =self.master_model._get_embeddings(selected_client_id, self.dataset["train"], self.conf.local_batch_size)
                 scatter_list.append(distribut_dict)
             else:
                 scatter_list.append(None)
@@ -333,7 +340,7 @@ class Master(object):
 
         self.last_comm_round = self.conf.graph.comm_round
         self.conf.logger.log(
-            f"\tMaster send the current model to client."
+            f"\tMaster send the current model={client_arch} to process_id={worker_rank}."
         )
         # dist.monitored_barrier()
 
@@ -392,8 +399,7 @@ class Master(object):
         # fedavg_models = self._avg_over_archs(flatten_local_models)
 
         # 主模型更新梯度
-        # self.master_model.recode_grad(flatten_local_models)
-        self.master_model.recode_grad_by_trainning_num (flatten_local_models)
+        self.master_model.recode_grad(flatten_local_models)
 
         if not hasattr(self, 'optimizer'):
             self.optimizer = torch.optim.Adam(self.master_model.parameters(), lr=self.conf.lr,

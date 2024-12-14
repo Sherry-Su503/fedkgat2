@@ -17,7 +17,9 @@ def inference(
 ):
     """Inference on the given model and get loss and accuracy."""
     # do the forward pass and get the output.
-    output = model(data_batch["input"])
+    user_ids, item_ids = data_batch["input"]
+    entities,relations = model._get_neighbors(item_ids)
+    output = model(user_ids, entities, relations)
 
     # evaluate the output and get the loss, performance.
     if conf.use_mixup and is_training:
