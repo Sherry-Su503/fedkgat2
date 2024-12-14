@@ -829,7 +829,7 @@ class KGCN_aggregator(torch.nn.Module):
 
             entity_vectors_next_iter = []
             for hop in range(self.n_iter - i):
-                vector = self.aggregator(
+                vector = self.aggregator.forward(
                     self_vectors=entity_embeddings[hop], #每次迭代生成新的实体嵌入，并将其传递给下一次迭代
                     neighbor_vectors=entity_embeddings[hop + 1].reshape(
                         (self.batch_size, -1, self.n_neighbor, self.dim)),

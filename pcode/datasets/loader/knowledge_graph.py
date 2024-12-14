@@ -37,13 +37,8 @@ class RecommendationDS(data.Dataset):
                 },
                 'book': {
                     'item2id_path': 'data/book/item_index2entity_id_rehashed.txt',
-<<<<<<< HEAD
                     'kg_path': 'data/book/kg_rehashed.txt',
                     'rating_path': 'data/BX-Book-Ratings.csv',
-=======
-                    'kg_path': 'data/book/kg_final.txt',
-                    'rating_path': 'data/book/ratings_final.txt',
->>>>>>> 016c121bb078798dd91f38c663d7d854fb537601
                     'rating_sep': ';',
                     'threshold': 0.0
                 }
@@ -51,7 +46,6 @@ class RecommendationDS(data.Dataset):
             self.data = data
             self.test_ratio = 0.2
             # # 数据加载和预处理
-<<<<<<< HEAD
             df_item2id = pd.read_csv(self.cfg[data]['item2id_path'], sep='\t', header=None, names=['item', 'id'])
             df_kg = pd.read_csv(self.cfg[data]['kg_path'], sep='\t', header=None, names=['head', 'relation', 'tail'])
             df_rating = pd.read_csv(self.cfg[data]['rating_path'], sep=self.cfg[data]['rating_sep'],
@@ -67,29 +61,11 @@ class RecommendationDS(data.Dataset):
             self.df_item2id = df_item2id  # item和id的对应关系
             self.df_kg = df_kg  # 知识图谱
             self.df_rating = df_rating  # 只包含对应关系item的购买记录 pd(user,item,rating)
-=======
-            # df_item2id = pd.read_csv(self.cfg[data]['item2id_path'], sep='\t', header=None, names=['item', 'id'])
-            # df_kg = pd.read_csv(self.cfg[data]['kg_path'], sep='\t', header=None, names=['head', 'relation', 'tail'])
-            # df_rating = pd.read_csv(self.cfg[data]['rating_path'], sep=self.cfg[data]['rating_sep'],
-            #                         names=['userID', 'itemID', 'rating'],skiprows=1)
-            # # print(df_rating['userID'].nunique())
-            # df_rating['itemID'] and df_item2id['item'] both represents old entity ID
-            # # 数据清洗与处理
-            # df_rating = df_rating[df_rating['itemID'].isin(df_item2id['item'])]  # 只取item2id里存在的item
-            # df_rating= df_rating.groupby('userID').filter(lambda x: len(x) > 10)  # 只保留那些评分项目数大于 10 的用户，保证每个用户有足够的评分数据进行训练
-            # df_rating.reset_index(inplace=True, drop=True)
-            #
-            #
-            # self.df_item2id = df_item2id  # item和id的对应关系
-            # self.df_kg = df_kg  # 知识图谱
-            # self.df_rating = df_rating  # 只包含对应关系item的购买记录 pd(user,item,rating)
->>>>>>> 016c121bb078798dd91f38c663d7d854fb537601
             # print('self.df_rating')
             # print(self.df_rating.info())
             # print( self.df_rating["userID"].apply(type).unique())
             # print(self.df_rating['userID'].nunique())
-<<<<<<< HEAD
-            
+
             self.user_encoder = LabelEncoder()# 拟合用户 ID 列，将所有用户的 ID 转换为整数编码。
             self.entity_encoder = LabelEncoder()
             self.relation_encoder = LabelEncoder()
@@ -107,44 +83,7 @@ class RecommendationDS(data.Dataset):
             # print(train_set.head())
             # print(train_set["userID"].apply(type).unique())
             num_user, num_entity, num_relation = self.get_num()
-=======
-            #
-            # self.user_encoder = LabelEncoder()# 拟合用户 ID 列，将所有用户的 ID 转换为整数编码。
-            # self.entity_encoder = LabelEncoder()
-            # self.relation_encoder = LabelEncoder()
-            # #
-            # self._encoding()
-            #
-            # kg = self._construct_kg()  # {head: (relation,tails)} 无向图，正反同关系
-            # df_dataset = self._build_dataset()
-            # # print('df_dataset')
-            # # print(df_dataset.head())
-            # # print(df_dataset["userID"].apply(type).unique())
-            # train_set, test_set, _, _ = train_test_split(df_dataset, df_dataset['label'], test_size=self.test_ratio,
-            #                                              shuffle=False, random_state=999)
-            # # print('train_set')
-            # # print(train_set.head())
-            # # print(train_set["userID"].apply(type).unique())
-            # num_user, num_entity, num_relation = self.get_num()
-            # # 确保训练集和测试集中的用户 ID 一致。如果测试集包含训练集中没有的用户 ID，则将这些用户的记录移动到训练集中。
-            # train_userIDs = set(train_set['userID'])
-            # test_userIDs = set(test_set['userID'])
-            # userIDs_to_move = test_userIDs - train_userIDs
-            # rows_to_move = test_set[test_set['userID'].isin(userIDs_to_move)]
-            # # train_set = train_set.append(rows_to_move)
-            # train_set= pd.concat ([train_set, rows_to_move],ignore_index=True)
-            # test_set = test_set[~test_set['userID'].isin(userIDs_to_move)]
-            # # print('train_set22222')
-            # # print(train_set.head())
-            # # print(train_set["userID"].apply(type).unique())
-            # print('num_user ', num_user)
 
-
-            # 重新进行数据处理
-            num_user,num_item,self.df_rating = self.load_rating()
-            train_set, test_set, _, _ = train_test_split (df_dataset, df_dataset['label'], test_size=self.test_ratio,
-                                                          shuffle=False, random_state=999)
->>>>>>> 016c121bb078798dd91f38c663d7d854fb537601
             # 确保训练集和测试集中的用户 ID 一致。如果测试集包含训练集中没有的用户 ID，则将这些用户的记录移动到训练集中。
             train_userIDs = set(train_set['userID'])
             test_userIDs = set(test_set['userID'])
@@ -153,7 +92,6 @@ class RecommendationDS(data.Dataset):
             # train_set = train_set.append(rows_to_move)
             train_set= pd.concat ([train_set, rows_to_move],ignore_index=True)
             test_set = test_set[~test_set['userID'].isin(userIDs_to_move)]
-<<<<<<< HEAD
             # print('train_set22222')
             # print(train_set.head())
             # print(train_set["userID"].apply(type).unique())
@@ -162,11 +100,6 @@ class RecommendationDS(data.Dataset):
             print ('--------------------num_user ', num_user)
             print ( '---------------------num_entity ',num_entity)
             print ( '---------------------num_relation ',num_relation)
-=======
-            num_entity,num_relation,kg = self.load_kg()
-
-            print ('--------------------num_user ', num_user, '---------------------num_entity ',num_entity)
->>>>>>> 016c121bb078798dd91f38c663d7d854fb537601
             
             torch.save(
                 {'train_set': train_set, 'test_set': test_set, 'kg': kg, 'num_user': num_user, 'num_entity': num_entity,
@@ -210,60 +143,6 @@ class RecommendationDS(data.Dataset):
         self.df_kg['tail'] = self.entity_encoder.transform(self.df_kg['tail'])
         self.df_kg['relation'] = self.relation_encoder.transform(self.df_kg['relation'])
 
-<<<<<<< HEAD
-    
-=======
-    def load_rating(self):
-        print ('reading rating file ...')
-
-        # reading rating file
-        if os.path.exists (self.cfg[data]['rating_path'] + '.npy'):
-            rating_np = np.load (rating_file + '.npy')
-        else:
-            rating_np = np.loadtxt (self.cfg[data]['rating_path'] + '.txt', dtype=np.int64)
-            np.save (rating_file + '.npy', rating_np)
-
-        n_user = len (set (rating_np[:, 0]))
-        n_item = len (set (rating_np[:, 1]))
-        # train_data, eval_data, test_data = dataset_split (rating_np, args)
-
-        return n_user, n_item, pd.DataFrame(rating_np,columns=['userID', 'itemID', 'rating'])
-
-    def load_kg(self):
-        print ('reading KG file ...')
-
-        # reading kg file
-        kg_file = self.cfg[data]['kg_path']
-        if os.path.exists (kg_file + '.npy'):
-            kg_np = np.load (kg_file + '.npy')
-        else:
-            kg_np = np.loadtxt (kg_file + '.txt', dtype=np.int64)
-            np.save (kg_file + '.npy', kg_np)
-
-        n_entity = len (set (kg_np[:, 0]) | set (kg_np[:, 2]))
-        n_relation = len (set (kg_np[:, 1]))
-
-        kg = construct_kg (kg_np)
-
-        return n_entity, n_relation, kg
-
-    def construct_kg(kg_np):
-        print ('constructing knowledge graph ...')
-        kg = dict ()
-        for triple in kg_np:
-            head = triple[0]
-            relation = triple[1]
-            tail = triple[2]
-            # treat the KG as an undirected graph
-            if head not in kg:
-                kg[head] = []
-            kg[head].append ((tail, relation))
-            if tail not in kg:
-                kg[tail] = []
-            kg[tail].append ((head, relation))
-        return kg
-
->>>>>>> 016c121bb078798dd91f38c663d7d854fb537601
     def _build_dataset(self):
         '''
         Build dataset for training (rating data)

@@ -23,15 +23,15 @@ class RecommendationDS(data.Dataset):
             self.cfg = {
                'movie': {
                     'item2id_path': 'data/movie/item_index2entity_id.txt',
-                    'kg_path': 'data/movie/kg.txt',
-                    'rating_path': 'data/movie/ratings.csv',
+                    'kg_path': 'data/movie/kg_final.txt',
+                    'rating_path': 'data/movie/ratings_final.txt',
                     'rating_sep': ',',
                     'threshold': 4.0
                 },
                 'music': {
                     'item2id_path': 'data/music/item_index2entity_id.txt',
-                    'kg_path': 'data/music/kg.txt',
-                    'rating_path': 'data/music/user_artists.dat',
+                    'kg_path': 'data/music/kg_final.txt',
+                    'rating_path': 'data/music/ratings_final.txt',
                     'rating_sep': '\t',
                     'threshold': 0.0
                 },
@@ -65,7 +65,7 @@ class RecommendationDS(data.Dataset):
             # print(self.df_rating.info())
             # print( self.df_rating["userID"].apply(type).unique())
             # print(self.df_rating['userID'].nunique())
-            
+
             self.user_encoder = LabelEncoder()# 拟合用户 ID 列，将所有用户的 ID 转换为整数编码。
             self.entity_encoder = LabelEncoder()
             self.relation_encoder = LabelEncoder()
@@ -83,6 +83,7 @@ class RecommendationDS(data.Dataset):
             # print(train_set.head())
             # print(train_set["userID"].apply(type).unique())
             num_user, num_entity, num_relation = self.get_num()
+
             # 确保训练集和测试集中的用户 ID 一致。如果测试集包含训练集中没有的用户 ID，则将这些用户的记录移动到训练集中。
             train_userIDs = set(train_set['userID'])
             test_userIDs = set(test_set['userID'])
@@ -142,7 +143,6 @@ class RecommendationDS(data.Dataset):
         self.df_kg['tail'] = self.entity_encoder.transform(self.df_kg['tail'])
         self.df_kg['relation'] = self.relation_encoder.transform(self.df_kg['relation'])
 
-    
     def _build_dataset(self):
         '''
         Build dataset for training (rating data)
