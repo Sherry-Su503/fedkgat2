@@ -168,8 +168,8 @@ class Master(object):
             ]
         )
         self.conf.used_client_archs = self.used_client_archs
-        conf.logger.log(f"The client will use archs={self.used_client_archs}.")
-        conf.logger.log("Master created model templates for client models.")
+        # conf.logger.log(f"The client will use archs={self.used_client_archs}.")
+        # conf.logger.log("Master created model templates for client models.")
 
 
         # 初始化客户端模型
@@ -180,7 +180,7 @@ class Master(object):
         # 将第一个客户端模型的状态字典加载到主模型的聚合器 aggregator 中，以确保模型参数的一致性
         # state_dict() 是 PyTorch 中的一个方法，用于返回模型的状态字典，其中包含了模型的所有参数（权重和偏置）。
         # load_state_dict() 是 PyTorch 中的方法，用于将一个字典中的参数加载到模型中。它会更新模型中所有与字典中键匹配的参数。
-        self.master_model.aggregator.load_state_dict(list(self.client_models.values())[0].state_dict())
+        # self.master_model.aggregator.load_state_dict(list(self.client_models.values())[0].state_dict())
         # 初始化主模型的梯度为零，避免梯度的累积
         # .parameters() 是 PyTorch 模型中的一个方法，它返回模型的所有可训练参数（如权重、偏置等）。每个参数都是一个 torch.Tensor 对象
         for param in self.master_model.parameters():
@@ -198,9 +198,9 @@ class Master(object):
         )
         print('conf.n_clients',conf.n_clients)
         self.conf.clientid2arch = self.clientid2arch
-        conf.logger.log(
-            f"Master initialize the clientid2arch mapping relations: {self.clientid2arch}."
-        )
+        # conf.logger.log(
+        #     f"Master initialize the clientid2arch mapping relations: {self.clientid2arch}."
+        # )
 
     def run(self):
         # run 方法实现了一个用于联邦学习的循环过程，主要包括通信轮次的管理、客户端选择、模型传递、聚合、早停检测等操作。
@@ -321,17 +321,12 @@ class Master(object):
             # transfer parameters if new comm_round and client arch not changed.
             distribut_dict = {}
             if selected_client_id != -1:
-                client_arch = self.clientid2arch[selected_client_id]
-                # send the model if the worker_arch is different from the last comm_round.
-                if self.last_comm_round != self.conf.graph.comm_round or self.worker_archs[worker_rank] !=client_arch:
-                    self.worker_archs[worker_rank] = client_arch
-                    distribut_dict['model']=self.client_models[client_arch]
-                else:
-                    distribut_dict['model']=None
-
-                # 获取selected_client_id客户端（用户）的嵌入信息：包含：user_embeddings, entities, entity_embeddings,
-                #relations, relation_embeddings, target(该user所有交互项的标签列表）
-                distribut_dict['embeddings'] =self.master_model._get_embeddings(selected_client_id, self.dataset["train"], self.conf.local_batch_size)
+                distribut_dict['model'] = self.master_model
+                item_ids, targets = self.master_model._get_items(selected_client_id, self.dataset["train"], self.conf.local_batch_size)
+                distribut_dict['input'] = [item_ids,targets]
+                # print('_send_model_to_selected_clients--item_ids',item_ids,item_ids.shape)
+                # entities,relations = self.master_model._get_neighbors(item_ids)
+                # distribut_dict['input'] = [entities,relations,targets]
                 scatter_list.append(distribut_dict)
             else:
                 scatter_list.append(None)
@@ -340,7 +335,7 @@ class Master(object):
 
         self.last_comm_round = self.conf.graph.comm_round
         self.conf.logger.log(
-            f"\tMaster send the current model={client_arch} to process_id={worker_rank}."
+            f"\tMaster send the current model to client."
         )
         # dist.monitored_barrier()
 
@@ -399,7 +394,8 @@ class Master(object):
         # fedavg_models = self._avg_over_archs(flatten_local_models)
 
         # 主模型更新梯度
-        self.master_model.recode_grad(flatten_local_models)
+        # self.master_model.recode_grad(flatten_local_models)
+        self.master_model.recode_grad_by_trainning_num (flatten_local_models)
 
         if not hasattr(self, 'optimizer'):
             self.optimizer = torch.optim.Adam(self.master_model.parameters(), lr=self.conf.lr,
@@ -414,68 +410,68 @@ class Master(object):
             # for i, param in enumerate (self.master_model.parameters ()):
             #     print (f"After optimizer step - Param {i}: Value mean: {param.data.mean ()}")
             self.optimizer.zero_grad(set_to_none=False)# 清空梯度
-            fedavg_model = copy.deepcopy(self.master_model.aggregator) #深拷贝主模型的聚合器
-            fedavg_models = {'kgcn_aggregate': fedavg_model}
-            # fedavg_model = list(fedavg_models.values())[0]
+            # fedavg_model = copy.deepcopy(self.master_model.aggregator) #深拷贝主模型的聚合器
+            # fedavg_models = {'kgcn_aggregate': fedavg_model}
+            # # fedavg_model = list(fedavg_models.values())[0]
         else:
             fedavg_model = None
 
-        # (smarter) aggregate the model from clients.
-        # note that: if conf.fl_aggregate["scheme"] == "federated_average",
-        #            then self.aggregator.aggregate_fn = None.
-        if self.aggregator.aggregate_fn is not None:
-            # evaluate the uniformly averaged model.
-            if fedavg_model is not None:
-                performance = master_utils.get_avg_perf_on_dataloaders(
-                    self.conf,
-                    self.coordinator,
-                    fedavg_model,
-                    self.criterion,
-                    self.metrics,
-                    self.test_loaders,
-                    label=f"fedag_test_loader",
-                )
-            else:
-                assert "knowledge_transfer" in self.conf.fl_aggregate["scheme"]
+#         # (smarter) aggregate the model from clients.
+#         # note that: if conf.fl_aggregate["scheme"] == "federated_average",
+#         #            then self.aggregator.aggregate_fn = None.
+#         if self.aggregator.aggregate_fn is not None:
+#             # evaluate the uniformly averaged model.
+#             if fedavg_model is not None:
+#                 performance = master_utils.get_avg_perf_on_dataloaders(
+#                     self.conf,
+#                     self.coordinator,
+#                     fedavg_model,
+#                     self.criterion,
+#                     self.metrics,
+#                     self.test_loaders,
+#                     label=f"fedag_test_loader",
+#                 )
+#             else:
+#                 assert "knowledge_transfer" in self.conf.fl_aggregate["scheme"]
 
-                performance = None
-                for _arch, _fedavg_model in fedavg_models.items():
-                    master_utils.get_avg_perf_on_dataloaders(
-                        self.conf,
-                        self.coordinator,
-                        _fedavg_model,
-                        self.criterion,
-                        self.metrics,
-                        self.test_loaders,
-                        label=f"fedag_test_loader_{_arch}",
-                    )
+#                 performance = None
+#                 for _arch, _fedavg_model in fedavg_models.items():
+#                     master_utils.get_avg_perf_on_dataloaders(
+#                         self.conf,
+#                         self.coordinator,
+#                         _fedavg_model,
+#                         self.criterion,
+#                         self.metrics,
+#                         self.test_loaders,
+#                         label=f"fedag_test_loader_{_arch}",
+#                     )
 
-            # aggregate the local models.
-            client_models = self.aggregator.aggregate(
-                master_model=self.master_model,
-                client_models=self.client_models,
-                fedavg_model=fedavg_model,
-                fedavg_models=fedavg_models,
-                flatten_local_models=flatten_local_models,
-                performance=performance,
-            )
-            # here the 'client_models' are updated in-place.
-            if same_arch:
-                # here the 'master_model' is updated in-place only for 'same_arch is True'.
-                self.master_model.load_state_dict(
-                    list(client_models.values())[0].state_dict()
-                )
-            for arch, _client_model in client_models.items():
-                self.client_models[arch].load_state_dict(_client_model.state_dict())
-        else:
-            # update self.master_model in place.
-            # if same_arch:
-            #     self.master_model.load_state_dict(fedavg_model.state_dict())
-            # update self.client_models in place.
-            # 更新客户端模型参数
-            for arch, _fedavg_model in fedavg_models.items():
-                # 表示将 _fedavg_model 的权重和偏置参数加载到 self.client_models[arch] 中的对应模型
-                self.client_models[arch].load_state_dict(_fedavg_model.state_dict())
+#             # aggregate the local models.
+#             client_models = self.aggregator.aggregate(
+#                 master_model=self.master_model,
+#                 client_models=self.client_models,
+#                 fedavg_model=fedavg_model,
+#                 fedavg_models=fedavg_models,
+#                 flatten_local_models=flatten_local_models,
+#                 performance=performance,
+#             )
+#             # here the 'client_models' are updated in-place.
+#             if same_arch:
+#                 # here the 'master_model' is updated in-place only for 'same_arch is True'.
+#                 self.master_model.load_state_dict(
+#                     list(client_models.values())[0].state_dict()
+#                 )
+#             for arch, _client_model in client_models.items():
+#                 self.client_models[arch].load_state_dict(_client_model.state_dict())
+#         else:
+#             # update self.master_model in place.
+#             # if same_arch:
+#             #     self.master_model.load_state_dict(fedavg_model.state_dict())
+#             # update self.client_models in place.
+#             # 更新客户端模型参数
+#             for arch, _fedavg_model in fedavg_models.items():
+#                 # 表示将 _fedavg_model 的权重和偏置参数加载到 self.client_models[arch] 中的对应模型
+#                 self.client_models[arch].load_state_dict(_fedavg_model.state_dict())
         self.conf.logger.log (
             f"\tMaster finish aggregate the models."
         )

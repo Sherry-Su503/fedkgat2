@@ -153,17 +153,18 @@ class Worker(object):
                 self.optimizer.zero_grad()
                 # 调用 KGCN_aggregator.forward 方法
                 # output 是一个一维张量，大小为 self.batch_size。
-                output = self.model(None,self.conf.graph.client_id *self.input) #前向传播
+                output = self.model(torch.tensor([self.conf.graph.client_id]).to('cuda:0'), *self.input) #前向传播
                 # 前向传播（forward）时，input 中的嵌入向量不会改变，但它们会参与计算图构建，允许后续的梯度计算。
                 # 后向传播和优化器更新阶段，如果这些嵌入向量是可学习参数，它们的值可能会更新。
                 # print(f"对模型输出--{output}和真实标签self.target--{self.target}计算损失.")
                 loss = self.criterion(output, self.target) #计算损失
                 loss.backward() #反向传播
                 # 由于在前向传播中设置了 requires_grad=True，在反向传播时，会计算损失相对于这些嵌入向量的梯度，并存储在 usr_embed.grad, ent_embed.grad, rel_embed.grad 中
-                optimizer.step ()
+                self.optimizer.step ()
                 running_loss += loss.item ()
+                # print ('[Client {} - total Epoch {}]train_loss: '.format (self.conf.graph.client_id, epoch), loss.item ())
             # print train loss per every local train
-            print ('[Client {}-total Epoch {}]train_loss: '.format (self.conf.graph.client_id, self.n_local_epochs), running_loss/self.n_local_epochs)
+            # print ('[Client {} - total Epoch {}]train_loss: '.format (self.conf.graph.client_id, self.n_local_epochs), running_loss/self.n_local_epochs)
 
             if self.conf.logger.meet_cache_limit():
                 self.conf.logger.save_json()

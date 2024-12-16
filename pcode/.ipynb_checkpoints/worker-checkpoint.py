@@ -89,7 +89,6 @@ class Worker(object):
         activation_msg=scatter_objects()[0]
         self.conf.graph.client_id, self.conf.graph.comm_round, self.n_local_epochs = activation_msg['client_id'], \
         activation_msg['comm_round'], activation_msg['local_epoch']
-        # print(f"Worker-{self.conf.graph.worker_id} activiated by Master in comm_round--{self.conf.graph.comm_round} epochs--{self.n_local_epochs} .")
         # self.conf.logger.log (
         #     f"Worker-{self.conf.graph.worker_id} activiated by Master in comm_round--{self.conf.graph.comm_round} epochs--{self.n_local_epochs} ."
         # )
@@ -111,8 +110,9 @@ class Worker(object):
                 self.state_dict= self.model.state_dict()
             else:
                 self.model.load_state_dict(self.state_dict)
-            # 拆包（unpacking）：*self.input 表示将 output_list['embeddings'] 中的前 n-1 个元素赋值给 self.input
-            *self.input, self.target = output_list['embeddings']
+            # 拆包（unpacking）：*self.input 表示将 output_list['input'] 中的前 n-1 个元素赋值给 self.input
+            # entities, relations, targets
+            *self.input, self.target = output_list['input']
 
         # self.conf.logger.log(
         #     f"Worker-{self.conf.graph.worker_id} (client-{self.conf.graph.client_id}) received the model ({output_list['model']}) and embedding from Master."
@@ -131,7 +131,6 @@ class Worker(object):
             # init the model and dataloader.
             if self.conf.graph.on_cuda:
                 self.model = self.model.to("cuda")
-                input_list = []
                 for i, input in enumerate(self.input):
                     if hasattr(input, "to"):
                         self.input[i]=input.to("cuda")
@@ -148,19 +147,24 @@ class Worker(object):
             # self.conf.logger.log(
             #     f"Worker-{self.conf.graph.worker_id} (client-{self.conf.graph.client_id}) enters the local training phase (current communication rounds={self.conf.graph.comm_round} n_local_epochs={self.n_local_epochs})."
             # )
+            running_loss = 0.0
             for epoch in range(self.n_local_epochs):
                 # refresh the logging cache at the end of each epoch.
                 self.optimizer.zero_grad()
                 # 调用 KGCN_aggregator.forward 方法
                 # output 是一个一维张量，大小为 self.batch_size。
-                # 它表示每个用户与其对应实体的预测相似度评分，范围在 [0, 1]
-                output = self.model(None, *self.input) #前向传播
+                output = self.model(torch.tensor([self.conf.graph.client_id]).to('cuda:0'), *self.input) #前向传播
                 # 前向传播（forward）时，input 中的嵌入向量不会改变，但它们会参与计算图构建，允许后续的梯度计算。
                 # 后向传播和优化器更新阶段，如果这些嵌入向量是可学习参数，它们的值可能会更新。
                 # print(f"对模型输出--{output}和真实标签self.target--{self.target}计算损失.")
                 loss = self.criterion(output, self.target) #计算损失
                 loss.backward() #反向传播
                 # 由于在前向传播中设置了 requires_grad=True，在反向传播时，会计算损失相对于这些嵌入向量的梯度，并存储在 usr_embed.grad, ent_embed.grad, rel_embed.grad 中
+                self.optimizer.step ()
+                running_loss += loss.item ()
+                # print ('[Client {} - total Epoch {}]train_loss: '.format (self.conf.graph.client_id, epoch), loss.item ())
+            # print train loss per every local train
+            # print ('[Client {} - total Epoch {}]train_loss: '.format (self.conf.graph.client_id, self.n_local_epochs), running_loss/self.n_local_epochs)
 
             if self.conf.logger.meet_cache_limit():
                 self.conf.logger.save_json()
@@ -256,9 +260,8 @@ class Worker(object):
             # flatten_model = TensorBuffer(list(self.model.state_dict().values()))
             gather_dict['model_grad']=[param.grad.to(comm_device) for param in self.model.parameters()]
 
-            # user_embed,ent_emded,rel_embed的梯度
-            gather_dict['embeddings_grad']=[self.input[0].grad.to(comm_device), self.input[2].grad.to(comm_device),
-                            self.input[4].grad.to(comm_device)] if self.conf.graph.client_id != -1 else [None] * 3
+            # self.usr,self.ent,self.rel的梯度
+            gather_dict['embeddings_grad']= self.model.get_embed_grad() if self.conf.graph.client_id != -1 else [None] * 3
         else:
             gather_dict=None
 
@@ -267,8 +270,6 @@ class Worker(object):
         #     f"Worker-{self.conf.graph.worker_id} (client-{self.conf.graph.client_id}) sending the model back to Master."
         # )
         # dist.barrier()
-
-
 
     def _terminate_comm_round(self):
         self.model = self.model.cpu()

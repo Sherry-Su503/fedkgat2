@@ -323,8 +323,10 @@ class Master(object):
             if selected_client_id != -1:
                 distribut_dict['model'] = self.master_model
                 item_ids, targets = self.master_model._get_items(selected_client_id, self.dataset["train"], self.conf.local_batch_size)
-                entities,relations = self.master_model._get_neighbors(item_ids)
-                distribut_dict['input'] = [entities,relations,targets]
+                distribut_dict['input'] = [item_ids,targets]
+                # print('_send_model_to_selected_clients--item_ids',item_ids,item_ids.shape)
+                # entities,relations = self.master_model._get_neighbors(item_ids)
+                # distribut_dict['input'] = [entities,relations,targets]
                 scatter_list.append(distribut_dict)
             else:
                 scatter_list.append(None)
@@ -408,68 +410,68 @@ class Master(object):
             # for i, param in enumerate (self.master_model.parameters ()):
             #     print (f"After optimizer step - Param {i}: Value mean: {param.data.mean ()}")
             self.optimizer.zero_grad(set_to_none=False)# 清空梯度
-            fedavg_model = copy.deepcopy(self.master_model.aggregator) #深拷贝主模型的聚合器
-            fedavg_models = {'kgcn_aggregate': fedavg_model}
-            # fedavg_model = list(fedavg_models.values())[0]
+            # fedavg_model = copy.deepcopy(self.master_model.aggregator) #深拷贝主模型的聚合器
+            # fedavg_models = {'kgcn_aggregate': fedavg_model}
+            # # fedavg_model = list(fedavg_models.values())[0]
         else:
             fedavg_model = None
 
-        # (smarter) aggregate the model from clients.
-        # note that: if conf.fl_aggregate["scheme"] == "federated_average",
-        #            then self.aggregator.aggregate_fn = None.
-        if self.aggregator.aggregate_fn is not None:
-            # evaluate the uniformly averaged model.
-            if fedavg_model is not None:
-                performance = master_utils.get_avg_perf_on_dataloaders(
-                    self.conf,
-                    self.coordinator,
-                    fedavg_model,
-                    self.criterion,
-                    self.metrics,
-                    self.test_loaders,
-                    label=f"fedag_test_loader",
-                )
-            else:
-                assert "knowledge_transfer" in self.conf.fl_aggregate["scheme"]
+#         # (smarter) aggregate the model from clients.
+#         # note that: if conf.fl_aggregate["scheme"] == "federated_average",
+#         #            then self.aggregator.aggregate_fn = None.
+#         if self.aggregator.aggregate_fn is not None:
+#             # evaluate the uniformly averaged model.
+#             if fedavg_model is not None:
+#                 performance = master_utils.get_avg_perf_on_dataloaders(
+#                     self.conf,
+#                     self.coordinator,
+#                     fedavg_model,
+#                     self.criterion,
+#                     self.metrics,
+#                     self.test_loaders,
+#                     label=f"fedag_test_loader",
+#                 )
+#             else:
+#                 assert "knowledge_transfer" in self.conf.fl_aggregate["scheme"]
 
-                performance = None
-                for _arch, _fedavg_model in fedavg_models.items():
-                    master_utils.get_avg_perf_on_dataloaders(
-                        self.conf,
-                        self.coordinator,
-                        _fedavg_model,
-                        self.criterion,
-                        self.metrics,
-                        self.test_loaders,
-                        label=f"fedag_test_loader_{_arch}",
-                    )
+#                 performance = None
+#                 for _arch, _fedavg_model in fedavg_models.items():
+#                     master_utils.get_avg_perf_on_dataloaders(
+#                         self.conf,
+#                         self.coordinator,
+#                         _fedavg_model,
+#                         self.criterion,
+#                         self.metrics,
+#                         self.test_loaders,
+#                         label=f"fedag_test_loader_{_arch}",
+#                     )
 
-            # aggregate the local models.
-            client_models = self.aggregator.aggregate(
-                master_model=self.master_model,
-                client_models=self.client_models,
-                fedavg_model=fedavg_model,
-                fedavg_models=fedavg_models,
-                flatten_local_models=flatten_local_models,
-                performance=performance,
-            )
-            # here the 'client_models' are updated in-place.
-            if same_arch:
-                # here the 'master_model' is updated in-place only for 'same_arch is True'.
-                self.master_model.load_state_dict(
-                    list(client_models.values())[0].state_dict()
-                )
-            for arch, _client_model in client_models.items():
-                self.client_models[arch].load_state_dict(_client_model.state_dict())
-        else:
-            # update self.master_model in place.
-            # if same_arch:
-            #     self.master_model.load_state_dict(fedavg_model.state_dict())
-            # update self.client_models in place.
-            # 更新客户端模型参数
-            for arch, _fedavg_model in fedavg_models.items():
-                # 表示将 _fedavg_model 的权重和偏置参数加载到 self.client_models[arch] 中的对应模型
-                self.client_models[arch].load_state_dict(_fedavg_model.state_dict())
+#             # aggregate the local models.
+#             client_models = self.aggregator.aggregate(
+#                 master_model=self.master_model,
+#                 client_models=self.client_models,
+#                 fedavg_model=fedavg_model,
+#                 fedavg_models=fedavg_models,
+#                 flatten_local_models=flatten_local_models,
+#                 performance=performance,
+#             )
+#             # here the 'client_models' are updated in-place.
+#             if same_arch:
+#                 # here the 'master_model' is updated in-place only for 'same_arch is True'.
+#                 self.master_model.load_state_dict(
+#                     list(client_models.values())[0].state_dict()
+#                 )
+#             for arch, _client_model in client_models.items():
+#                 self.client_models[arch].load_state_dict(_client_model.state_dict())
+#         else:
+#             # update self.master_model in place.
+#             # if same_arch:
+#             #     self.master_model.load_state_dict(fedavg_model.state_dict())
+#             # update self.client_models in place.
+#             # 更新客户端模型参数
+#             for arch, _fedavg_model in fedavg_models.items():
+#                 # 表示将 _fedavg_model 的权重和偏置参数加载到 self.client_models[arch] 中的对应模型
+#                 self.client_models[arch].load_state_dict(_fedavg_model.state_dict())
         self.conf.logger.log (
             f"\tMaster finish aggregate the models."
         )

@@ -23,15 +23,15 @@ class RecommendationDS(data.Dataset):
             self.cfg = {
                'movie': {
                     'item2id_path': 'data/movie/item_index2entity_id.txt',
-                    'kg_path': 'data/movie/kg_final.txt',
-                    'rating_path': 'data/movie/ratings_final.txt',
+                    'kg_path': 'data/movie/kg.txt',
+                    'rating_path': 'data/movie/ratings.txt',
                     'rating_sep': ',',
                     'threshold': 4.0
                 },
                 'music': {
                     'item2id_path': 'data/music/item_index2entity_id.txt',
-                    'kg_path': 'data/music/kg_final.txt',
-                    'rating_path': 'data/music/ratings_final.txt',
+                    'kg_path': 'data/music/kg.txt',
+                    'rating_path': 'data/music/user_artists.dat',
                     'rating_sep': '\t',
                     'threshold': 0.0
                 },
@@ -62,7 +62,7 @@ class RecommendationDS(data.Dataset):
             self.df_kg = df_kg  # 知识图谱
             self.df_rating = df_rating  # 只包含对应关系item的购买记录 pd(user,item,rating)
             # print('self.df_rating')
-            # print(self.df_rating.info())
+            print('self.df_rating.info()',self.df_rating.info())
             # print( self.df_rating["userID"].apply(type).unique())
             # print(self.df_rating['userID'].nunique())
 
@@ -74,9 +74,9 @@ class RecommendationDS(data.Dataset):
             
             kg = self._construct_kg()  # {head: (relation,tails)} 无向图，正反同关系
             df_dataset = self._build_dataset()
-            # print('df_dataset')
-            # print(df_dataset.head())
-            # print(df_dataset["userID"].apply(type).unique())
+            print('df_dataset')
+            print(df_dataset.head())
+            print(df_dataset["userID"].apply(type).unique())
             train_set, test_set, _, _ = train_test_split(df_dataset, df_dataset['label'], test_size=self.test_ratio,
                                                          shuffle=False, random_state=999)
             # print('train_set')
@@ -95,7 +95,6 @@ class RecommendationDS(data.Dataset):
             # print('train_set22222')
             # print(train_set.head())
             # print(train_set["userID"].apply(type).unique())
-            print('num_user ', num_user)
 
             print ('--------------------num_user ', num_user)
             print ( '---------------------num_entity ',num_entity)
@@ -110,6 +109,9 @@ class RecommendationDS(data.Dataset):
             train_set, test_set = preprocessed_data['train_set'], preprocessed_data['test_set']
 
 
+        # breakpoint()
+        print('train_set len',len(train_set))
+        print('test_set  len',len(test_set))
         # breakpoint()
         # 为每个用户生成索引，便于快速查找该用户对应的评分记录
         self.df = train_set if train else test_set

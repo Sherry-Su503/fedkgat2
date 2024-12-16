@@ -10,6 +10,10 @@ class TopkEval():
     # 代码中使用了 PyTorch 和 DataLoader 进行批量计算。
     def __init__(self, dataset, train_data, test_data, k_list=[20]):
         topk_eval=Path(f"data/{dataset}/{dataset}.topk_eval")
+        # print('TopkEval train_data',train_data.__len__())
+        # print('TopkEval test_dataset',test_data.__len__())
+        # print('usr,ent,rel',train_data.get_num())
+        # print('usr,ent,rel',test_data.get_num())
         if topk_eval.exists():
             obj = torch.load(topk_eval)
             self.user_list = obj.user_list
@@ -30,6 +34,9 @@ class TopkEval():
                 user_list = np.random.choice(user_list, size=user_num, replace=False)
             n_item = max(max(train_data[:][0][1]), max(test_data[:][0][1]))
             item_set = set(list(range(n_item)))
+            # print('user_list',user_list,len(user_list))  100
+            # print('n_item',n_item)  9365
+            # print('item_set',item_set)
             test_dataset = torch.vstack([torch.tensor(user_list).repeat([n_item, 1]).t().flatten(),
                                          torch.arange(n_item).repeat([len(user_list)])]).t()
             # 标记哪些项目已出现在用户的训练数据中
@@ -53,6 +60,8 @@ class TopkEval():
                 self.user_list))])
             torch.save(self, topk_eval)
         self.k_list = k_list
+        # print('self.test_dataset',self.test_dataset,len(self.test_dataset))  #936500
+        # breakpoint()
 
     def eval(self, model, comm_round,device='cuda',batch_size=None, test_by_item=False):
         '''方法用于评估给定模型的性能，计算 Precision、Recall 和 NDCG 指标'''
@@ -86,14 +95,18 @@ class TopkEval():
                 # 对所有用户计算评分并根据测试集进行评估。
                 # 对每个用户的推荐结果，计算其精度、召回率和 NDCG，并将它们的平均值作为最终结果
                 # 求所有用户的平均
-                n_item = len(self.item_set)
+                n_item = len(self.item_set)  # music 9365
                 score_list = []
                 if batch_size is None:
                     # batch_size = len(self.test_dataset)
                     batch_size=n_item*10000
-                for data_batch in DataLoader(dataset=self.test_dataset, batch_size=batch_size, shuffle=False):
+                # print('batch_size',batch_size)
+                # print('self.test_dataset',len(self.test_dataset))
+                for data_batch in DataLoader(dataset=self.test_dataset, batch_size=100, shuffle=False):
                     data_batch= data_batch.to(device)
-                    score_list.append(model([data_batch[:, 0], data_batch[:, 1]]))
+                    # print('eval--data_batch[:, 0]',data_batch[:, 0],data_batch[:, 0].shape )
+                    # print('data_batch[:, 1]',data_batch[:, 1],data_batch[:, 1].shape)
+                    score_list.append(model(data_batch[:, 0], data_batch[:, 1].view(-1, 1)))
                 score = torch.concat(score_list).reshape(-1, n_item)
                 self.train_item_mask = self.train_item_mask.long()
                 score[self.train_item_mask] = -np.inf
