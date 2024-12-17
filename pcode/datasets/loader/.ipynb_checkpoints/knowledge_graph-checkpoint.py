@@ -38,7 +38,7 @@ class RecommendationDS(data.Dataset):
                 'book': {
                     'item2id_path': 'data/book/item_index2entity_id_rehashed.txt',
                     'kg_path': 'data/book/kg_rehashed.txt',
-                    'rating_path': 'data/BX-Book-Ratings.csv',
+                    'rating_path': 'data/book/BX-Book-Ratings.csv',
                     'rating_sep': ';',
                     'threshold': 0.0
                 }

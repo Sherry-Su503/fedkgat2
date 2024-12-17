@@ -48,7 +48,13 @@ class Aggregator(torch.nn.Module):
         else:
             output = neighbors_agg.reshape((-1, self.dim)) # 只使用聚合后的邻居特征
 
+        # print(output.shape)  # 打印 output 的形状
+        # print(self.weights.in_features)  # 打印 Linear 层的输入维度
         output = self.weights(output) #使用 self.weights（Linear 层）对聚合后的特征进行线性变换，调整特征的维度
+#         try:
+           
+#         except Exception as e:
+#             logging.error(f"An error occurred: {e}")
         # 使用提供的激活函数 act 对输出进行激活处理
         return act(output.reshape((self.batch_size, -1, self.dim)))
 
@@ -125,30 +131,41 @@ class KGCN_kg(torch.nn.Module):
                ent_id: [batch_size]
                rel_id: [batch_size]
         '''
-        # print('forward--usr_id',usr_id.shape)
-        # print('forward--item_ids',item_ids.shape)
-        ent_id,rel_id = self._get_neighbors(item_ids)
-        self.batch_size = len (ent_id[0])
+        # print('forward--usr_id',usr_id)
+        # print('forward--item_ids',item_ids)
+        # ent_id,rel_id = self._get_neighbors(item_ids)
+        self.batch_size = len (item_ids[0])
         usr_id = usr_id.view ((-1, 1))
+        item_ids = item_ids.view ((-1, 1))
         # user_embeddings = usr_embed[usr_id] #根据用户 ID 获取对应的用户嵌入
         # print('usr_id',usr_id,usr_id.shape)
         # print('self.usr.weight',self.usr.weight,self.usr.weight.shape)
-        
+        usr_id = usr_id.to(self.device)
+        item_ids = item_ids.to(self.device)
         user_embeddings = self.usr(usr_id).squeeze (dim=1)
-        # print('forward--usr_id',usr_id[0].shape)
-        # # print('forward--item_ids',item_ids[0].shape)
-        # print('forward--ent_id',ent_id[0].shape)
+        # print('forward--item_ids',item_ids[0].shape)
+        item_embeddings = self.ent(item_ids).squeeze (dim=1)
+        
+        
 
-        entities = [entity.to(self.device) for entity in ent_id]
-        relations = [relation.to(self.device) for relation in rel_id]
-        entities_embeddings = [self.ent(entity) for entity in entities]  # 为每个实体 ID 查找对应的实体嵌入。
-        relations_embeddings = [self.rel(relation) for relation in relations]  # 为每个关系 ID 查找对应的关系嵌入。
-        # 调用 _aggregate 方法，将用户、实体和关系的嵌入作为输入，进行多次聚合，生成新的实体嵌入。
-        # print('forward--entities_embeddings',entities_embeddings[0].shape)
-        # print('forward--relations_embeddings',relations_embeddings[0].shape)
-        item_embeddings = self._aggregate (user_embeddings, entities_embeddings, relations_embeddings)  # 单层加权求和
-
+        #-----------------------------------kg部分--------------------------------
+        # entities = [entity.to(self.device) for entity in ent_id]
+        # relations = [relation.to(self.device) for relation in rel_id]
+        # entities_embeddings = [self.ent(entity) for entity in entities]  # 为每个实体 ID 查找对应的实体嵌入。
+        # relations_embeddings = [self.rel(relation) for relation in relations]  # 为每个关系 ID 查找对应的关系嵌入。
+        # # 调用 _aggregate 方法，将用户、实体和关系的嵌入作为输入，进行多次聚合，生成新的实体嵌入。
+        # # print('forward--entities_embeddings',entities_embeddings[0].shape)
+        # # print('forward--relations_embeddings',relations_embeddings[0].shape)
+        # item_embeddings = self._aggregate (user_embeddings, entities_embeddings, relations_embeddings)  # 单层加权求和
+        #-----------------------------------kg部分--------------------------------
+        # print('forward--item_ids',item_ids.shape)
+        # print('forward--item_ids',entities[0].shape)
+        # print('forward--item_embeddings1',item_embeddings1.shape)
+        # print('forward--item_embeddings',item_embeddings.shape)
+        
         scores = (user_embeddings * item_embeddings).sum (dim=1)  # 计算评分：计算用户与聚合后的实体嵌入的相似度（点积）
+        # print('scores--', scores)
+        # breakpoint()
         return torch.sigmoid (scores)  # 通过 torch.sigmoid 激活函数映射到 [0, 1] 范围内，表示预测的相似度评分
 
     def _aggregate(self, user_embeddings, entity_embeddings, relation_embeddings):
@@ -179,12 +196,13 @@ class KGCN_kg(torch.nn.Module):
                 entity_vectors_next_iter.append (vector)
             entity_embeddings = entity_vectors_next_iter  # entity_embeddings 被更新为每次迭代后的新嵌入。
         # print('aggregation--self.batch_size, self.dim',self.batch_size, self.dim)
-        # print('aggregation--entity_embeddings',entity_embeddings[0].shape)
-
+        # print('aggregation--entity_embeddings',entity_embeddings[0].shape) =pow(self.batch_size,self.n_iter)
+        # self.batch_size = pow(self.batch_size,self.n_iter)
+        # self.batch_size=entity_embeddings[0].shape[1]
         return entity_embeddings[0].reshape ((self.batch_size, self.dim))  # 回最后一次迭代后的实体嵌入
 
     def _get_items(self, user_id, dataset,batch_size):
-        '''用于获取一个userID所有的交互项itemId  relations'''
+        '''用于获取tain_set中一个userID所有的交互项itemId  relations'''
         with torch.no_grad ():
         # 检查是否已有缓存
             if not hasattr (self, "dataset_dict"):
