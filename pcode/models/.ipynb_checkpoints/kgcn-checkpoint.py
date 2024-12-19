@@ -184,7 +184,7 @@ class KGCN_kg(torch.nn.Module):
         return entity_embeddings[0].reshape ((self.batch_size, self.dim))  # 回最后一次迭代后的实体嵌入
 
     def _get_items(self, user_id, dataset,batch_size):
-        '''用于获取一个userID所有的交互项itemId  relations'''
+        '''用于本地客户端获取一个userID所有的交互项itemId  relations'''
         with torch.no_grad ():
         # 检查是否已有缓存
             if not hasattr (self, "dataset_dict"):
@@ -205,6 +205,15 @@ class KGCN_kg(torch.nn.Module):
             # change to [batch_size, 1]
             item_ids = item_ids.clone ().reshape ((-1, 1))
             return item_ids, target
+    def _get_items_by_master(self, dataset):
+        '''用于服务器端模型获取dataset_dict'''
+        with torch.no_grad ():
+        # 检查是否已有缓存
+            if not hasattr (self, "dataset_dict"):
+                self.dataset_dict = {
+                     idx[0]: [torch.tensor (df["itemID"].values),
+                                torch.tensor (df["label"].values, dtype=torch.float)]
+                    for idx, df in dataset.df.groupby (["userID"])}
 
     def _get_neighbors(self, v):
         '''
@@ -272,6 +281,12 @@ class KGCN_kg(torch.nn.Module):
             for i, param in enumerate(self.parameters()):
                 param.grad = torch.zeros_like(param)
             totle_interactions = 0
+            if not hasattr (self, "dataset_dict"):
+                self.dataset_dict = {
+                     idx[0]: [torch.tensor (df["itemID"].values),
+                                torch.tensor (df["label"].values, dtype=torch.float)]
+                    for idx, df in dataset.df.groupby (["userID"])}
+                    # print(self.dataset_dict.keys())  # 打印 dataset_dict 的所有 user_id 键
             for user_id, grad in flatten_local_models.items():
                 num= len(self.dataset_dict[user_id][0])
                 totle_interactions+=num

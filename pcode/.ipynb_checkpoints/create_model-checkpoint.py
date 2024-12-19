@@ -94,7 +94,7 @@ def get_model_stat(conf, model, arch):
         "\t=> {} created model '{}. Total params: {}M".format(
             "Master"
             if conf.graph.rank == 0
-            else f"Worker-{conf.graph.worker_id} (client-{conf.graph.client_id})",
+            else f"Worker-{conf.graph.worker_id}",
             arch,
             sum(p.numel() for p in model.parameters() if p.requires_grad) / 1e6,
         )

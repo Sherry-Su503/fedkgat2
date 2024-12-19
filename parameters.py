@@ -524,27 +524,31 @@ def experiment_paramenter(conf):
         conf.dim = 16
         conf.n_iter = 1 # 迭代次数
         conf.weight_decay = 1e-5
-        conf.lr = 5e-5
+        # conf.lr = 5e-5
+        conf.lr = 1e-1
         conf.batch_size = 32
     elif conf.data == 'book':
         conf.neighbor_sample_size = 8
         conf.dim = 64
         conf.n_iter = 1
         conf.weight_decay = 2e-5
-        conf.lr = 2e-4
+        # conf.lr = 2e-4
+        conf.lr = 1e-1
         conf.batch_size = 32
     elif conf.data == 'movie':
-        conf.neighbor_sample_size = 4
+        conf.neighbor_sample_size = 8
         conf.dim = 32
-        conf.n_iter = 2
+        conf.n_iter = 1
         conf.weight_decay = 1e-7
         conf.lr = 2e-2
+        # conf.lr = 1e-1
         conf.batch_size = 32
 
 # add debug environment
 def debug_parameter(conf):
     # debug
     debug=False
+    # debug=True
 
     # conf.data = 'book'
     if debug==True:
@@ -554,8 +558,8 @@ def debug_parameter(conf):
         conf.validation_interval = 1
         conf.topk_eval_interval = 1
     else:
-        conf.n_participated = 32
-        conf.workers = 32
+        conf.n_participated = 25
+        conf.workers = 25
         conf.validation_interval = 10
         conf.topk_eval_interval =30
     conf.train_fast = True

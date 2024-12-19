@@ -9,6 +9,7 @@ import torch.nn.functional as F
 from math import ceil
 
 import pcode.create_metrics as create_metrics
+import pcode.create_dataset as create_dataset
 import pcode.create_model as create_model
 import pcode.datasets.mixup_data as mixup
 import pcode.local_training.compressor as compressor
@@ -76,6 +77,7 @@ class Worker(object):
         )
 
     def run(self):
+        dist.barrier()
         while True:
             self._listen_to_master()
 
@@ -137,10 +139,15 @@ class Worker(object):
             # 设置 self.training=True。
             # 递归地对所有子模块（如 self.aggregator）也调用 train()，从而切换所有子模块到训练模式。
             self.model.train()
-
+            
+            # 获取本地交互数据
+            self.item_ids, self.target = self.model._get_items (self.conf.graph.client_id, self.dataset["train"],
+                                                              self.conf.local_batch_size)
             # init the model and dataloader.
             if self.conf.graph.on_cuda:
                 self.model = self.model.to("cuda")
+                self.item_ids = self.item_ids.to("cuda")
+                self.target = self.target.to("cuda")
                 # for i, input in enumerate(self.input):
                 #     if hasattr(input, "to"):
                 #         self.input[i]=input.to("cuda")
@@ -158,8 +165,7 @@ class Worker(object):
             #     f"Worker-{self.conf.graph.worker_id} (client-{self.conf.graph.client_id}) enters the local training phase (current communication rounds={self.conf.graph.comm_round} n_local_epochs={self.n_local_epochs})."
             # )
             running_loss = 0.0
-            self.item_ids, self.target = self.master_model._get_items (self.conf.graph.client_id, self.dataset["train"],
-                                                              self.conf.local_batch_size)
+
             for epoch in range(self.n_local_epochs):
                 # refresh the logging cache at the end of each epoch.
                 self.optimizer.zero_grad()

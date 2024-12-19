@@ -160,6 +160,7 @@ class Master(object):
         _, self.master_model = create_model.define_model(
             conf, to_consistent_model=False
         )
+        self.master_model._get_items_by_master(self.dataset["train"])
         # 确定客户端架构:所有客户端的架构被放入一个集合中。如果多个客户端使用相同的架构，则该架构只会在集合中出现一次。
         self.used_client_archs = set(
             [
@@ -203,6 +204,7 @@ class Master(object):
         # )
 
     def run(self):
+        dist.barrier()
         # run 方法实现了一个用于联邦学习的循环过程，主要包括通信轮次的管理、客户端选择、模型传递、聚合、早停检测等操作。
         for comm_round in range(1, 1 + self.conf.n_comm_rounds):
             # 循环遍历 comm_round（通信轮次）
@@ -317,12 +319,14 @@ class Master(object):
         # the master_model can be large; the client_models can be small and different.
         self.conf.logger.log(f"Master send the models to workers.")
         scatter_list = []
+        state_dict = self.master_model.state_dict()
+        # self.conf.logger.log(f"tMaster send the updated models params-- {state_dict} to clients.")
         for worker_rank, selected_client_id in enumerate(selected_client_ids, start=1):
             # transfer parameters if new comm_round and client arch not changed.
             distribut_dict = {}
             if selected_client_id != -1:
                 # 只下发，模型的参数
-                distribut_dict['model'] = self.master_model.state_dict()
+                distribut_dict['model'] = state_dict
                 # item_ids, targets = self.master_model._get_items(selected_client_id, self.dataset["train"], self.conf.local_batch_size)
                 # distribut_dict['input'] = [item_ids,targets]
                 scatter_list.append(distribut_dict)
@@ -333,7 +337,7 @@ class Master(object):
 
         self.last_comm_round = self.conf.graph.comm_round
         self.conf.logger.log(
-            f"\tMaster send the current model to client."
+            f"\tMaster has send the current model to client."
         )
         # dist.monitored_barrier()
 
