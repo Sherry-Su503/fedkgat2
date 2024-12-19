@@ -24,7 +24,7 @@ class RecommendationDS(data.Dataset):
                'movie': {
                     'item2id_path': 'data/movie/item_index2entity_id.txt',
                     'kg_path': 'data/movie/kg.txt',
-                    'rating_path': 'data/movie/ratings.txt',
+                    'rating_path': 'data/movie/ratings.csv',
                     'rating_sep': ',',
                     'threshold': 4.0
                 },
@@ -50,11 +50,15 @@ class RecommendationDS(data.Dataset):
             df_kg = pd.read_csv(self.cfg[data]['kg_path'], sep='\t', header=None, names=['head', 'relation', 'tail'])
             df_rating = pd.read_csv(self.cfg[data]['rating_path'], sep=self.cfg[data]['rating_sep'],
                                     names=['userID', 'itemID', 'rating'],skiprows=1)
-            # print(df_rating['userID'].nunique())
+            print(df_rating['userID'].nunique())
             # df_rating['itemID'] and df_item2id['item'] both represents old entity ID
             # 数据清洗与处理
+          
             df_rating = df_rating[df_rating['itemID'].isin(df_item2id['item'])]  # 只取item2id里存在的item
             df_rating= df_rating.groupby('userID').filter(lambda x: len(x) > 10)  # 只保留那些评分项目数大于 10 的用户，保证每个用户有足够的评分数据进行训练
+            df_rating = df_rating[df_rating['rating'] >=4] # 留下正向交互，只针对movie数据集
+            print(df_rating['userID'].nunique())
+            
             df_rating.reset_index(inplace=True, drop=True)
             
             
@@ -76,7 +80,8 @@ class RecommendationDS(data.Dataset):
             df_dataset = self._build_dataset()
             print('df_dataset')
             print(df_dataset.head())
-            print(df_dataset["userID"].apply(type).unique())
+            print('usernum',df_dataset['userID'].nunique())
+           
             train_set, test_set, _, _ = train_test_split(df_dataset, df_dataset['label'], test_size=self.test_ratio,
                                                          shuffle=False, random_state=999)
             # print('train_set')
@@ -99,6 +104,7 @@ class RecommendationDS(data.Dataset):
             print ('--------------------num_user ', num_user)
             print ( '---------------------num_entity ',num_entity)
             print ( '---------------------num_relation ',num_relation)
+          
             
             torch.save(
                 {'train_set': train_set, 'test_set': test_set, 'kg': kg, 'num_user': num_user, 'num_entity': num_entity,
@@ -110,6 +116,7 @@ class RecommendationDS(data.Dataset):
 
 
         # breakpoint()
+
         print('train_set len',len(train_set))
         print('test_set  len',len(test_set))
         # breakpoint()
@@ -117,17 +124,27 @@ class RecommendationDS(data.Dataset):
         self.df = train_set if train else test_set
         self.idx = self.df.index
         self.index = defaultdict(list)
-        # self.user_num = self.df.userID.max() + 1
-        # print(self.df.head())
-        # print(self.df[self.df['userID'] == 378])
-        # print(self.df.info())
-        # print(self.df["userID"].apply(type).unique())  # 查看所有数据类型
+#         # self.user_num = self.df.userID.max() + 1
+#         # print(self.df.head())
+#         # print(self.df[self.df['userID'] == 378])
+#         # print(self.df.info())
+#         # print(self.df["userID"].apply(type).unique())  # 查看所有数据类型
         
-        # print(self.df["userID"].unique())  # 查看所有唯一值
-        # print(self.df["userID"].max ())
-        self.user_num = self.df["userID"].max () + 1
-        for user_id in range(self.user_num):
-            self.index[user_id] = self.df[self.df.userID == user_id].index
+        
+#         # print(self.df["userID"].unique())  # 查看所有唯一值
+#         # print(self.df["userID"].max ())
+#         self.user_num = self.df["userID"].max () + 1
+#         for user_id in range(self.user_num):
+#             self.index[user_id] = self.df[self.df.userID == user_id].index
+
+
+        # 通过 groupby 进行分组并为每个用户生成索引
+        for user_id, group in self.df.groupby(self.df['userID']):
+            self.index[user_id] = group.index.tolist()
+
+        # 获取用户数量
+        self.user_num = self.df["userID"].nunique()  # 使用 nunique() 来获取唯一用户数量
+
 
     def _encoding(self):
         '''
@@ -167,7 +184,10 @@ class RecommendationDS(data.Dataset):
         # negative sampling负样本采样
         df_dataset = df_dataset[df_dataset['label'] == 1]  # 只取rating大于阈值的正样本
         # df_dataset requires columns to have new entity ID
+        # self.user_encoder.fit(self.df_rating['userID'])
+        # df_dataset['userID'] = self.user_encoder.transform(self.df_rating['userID'])
         df_dataset['userID'] = df_dataset['userID'].apply(lambda x: x[0] if isinstance(x, tuple) else x)
+        
         full_item_set = set(range(len(self.entity_encoder.classes_)))
         user_list = []
         item_list = []

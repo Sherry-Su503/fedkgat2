@@ -133,7 +133,7 @@ class KGCN_kg(torch.nn.Module):
         # user_embeddings = usr_embed[usr_id] #根据用户 ID 获取对应的用户嵌入
         # print('usr_id',usr_id,usr_id.shape)
         # print('self.usr.weight',self.usr.weight,self.usr.weight.shape)
-        
+        usr_id = usr_id.to(self.device) 
         user_embeddings = self.usr(usr_id).squeeze (dim=1)
         # print('forward--usr_id',usr_id[0].shape)
         # # print('forward--item_ids',item_ids[0].shape)
