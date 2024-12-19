@@ -321,12 +321,10 @@ class Master(object):
             # transfer parameters if new comm_round and client arch not changed.
             distribut_dict = {}
             if selected_client_id != -1:
-                distribut_dict['model'] = self.master_model
-                item_ids, targets = self.master_model._get_items(selected_client_id, self.dataset["train"], self.conf.local_batch_size)
-                distribut_dict['input'] = [item_ids,targets]
-                # print('_send_model_to_selected_clients--item_ids',item_ids,item_ids.shape)
-                # entities,relations = self.master_model._get_neighbors(item_ids)
-                # distribut_dict['input'] = [entities,relations,targets]
+                # 只下发，模型的参数
+                distribut_dict['model'] = self.master_model.state_dict()
+                # item_ids, targets = self.master_model._get_items(selected_client_id, self.dataset["train"], self.conf.local_batch_size)
+                # distribut_dict['input'] = [item_ids,targets]
                 scatter_list.append(distribut_dict)
             else:
                 scatter_list.append(None)
