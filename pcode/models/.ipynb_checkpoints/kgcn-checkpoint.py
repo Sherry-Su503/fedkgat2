@@ -130,6 +130,8 @@ class KGCN_kg(torch.nn.Module):
         ent_id,rel_id = self._get_neighbors(item_ids)
         self.batch_size = len (ent_id[0])
         usr_id = usr_id.view ((-1, 1))
+        usr_id = usr_id.to(self.device)
+        # item_ids = item_ids.to(self.device)
         # user_embeddings = usr_embed[usr_id] #根据用户 ID 获取对应的用户嵌入
         # print('usr_id',usr_id,usr_id.shape)
         # print('self.usr.weight',self.usr.weight,self.usr.weight.shape)
