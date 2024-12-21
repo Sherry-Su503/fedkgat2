@@ -258,10 +258,13 @@ class Worker(object):
         if self.conf.graph.client_id != -1:
             gather_dict = {}
             # flatten_model = TensorBuffer(list(self.model.state_dict().values()))
+            # print('_send_model_to_master,self.model.parameters()',self.model.parameters())
+            # for param in self.model.parameters():
+            #     print(param.grad)
             gather_dict['model_grad']=[param.grad.to(comm_device) for param in self.model.parameters()]
 
-            # self.usr,self.ent,self.rel的梯度
-            gather_dict['embeddings_grad']= self.model.get_embed_grad() if self.conf.graph.client_id != -1 else [None] * 3
+            # self.usr,self.ent的梯度
+            gather_dict['embeddings_grad']= self.model.get_embed_grad() if self.conf.graph.client_id != -1 else [None] * 2
         else:
             gather_dict=None
 

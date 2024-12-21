@@ -92,17 +92,17 @@ class KGCN_kg(torch.nn.Module):
         self.batch_size = args.batch_size
         self.dim = args.dim
         self.n_neighbor = args.neighbor_sample_size  # 采样邻居个数
-        self.kg = kg
+        # self.kg = kg
         self.device = device
         # 用于聚合邻居节点特征的模块
-        self.aggregator = Aggregator(self.batch_size, self.dim, args.aggregator)
+        # self.aggregator = Aggregator(self.batch_size, self.dim, args.aggregator)
 
-        self._gen_adj()  # 对KG中的每一个head,固定采样n_neighbor个邻居节点和关系
+        # self._gen_adj()  # 对KG中的每一个head,固定采样n_neighbor个邻居节点和关系
         self.id_map = {}
 
         self.usr = nn.Embedding(num_usr, args.dim) #定义了一个用户嵌入层，num_usr 是用户的数量，args.dim 是嵌入的维度
         self.ent = nn.Embedding(num_ent, args.dim) #定义了一个实体嵌入层，num_ent 是实体的数量
-        self.rel = nn.Embedding(num_rel, args.dim) #定义了一个关系嵌入层，num_rel 是关系的数量
+        # self.rel = nn.Embedding(num_rel, args.dim) #定义了一个关系嵌入层，num_rel 是关系的数量
 
     def _gen_adj(self):
         '''
@@ -248,7 +248,7 @@ class KGCN_kg(torch.nn.Module):
 
     def get_embed_grad(self):
         '''用于客户端获取嵌入层的梯度，发送给服务器'''
-        return [self.usr.weight.grad, self.ent.weight.grad, self.rel.weight.grad]
+        return [self.usr.weight.grad, self.ent.weight.grad]
 
     def recode_grad(self, flatten_local_models):
         # 梯度聚合：更新主模型（master_model）的梯度信息
@@ -296,12 +296,12 @@ class KGCN_kg(torch.nn.Module):
             for user_id, grad in flatten_local_models.items():
                 num = len(self.dataset_dict[user_id][0])  # 每个用户的样本数
                 model_grad = grad['model_grad']
-                usr_grad, ent_grad, rel_grad = grad['embeddings_grad']
+                usr_grad, ent_grad = grad['embeddings_grad']
                 self.usr.weight.grad += usr_grad * (num/totle_interactions)
                 self.ent.weight.grad += ent_grad * (num/totle_interactions)
-                self.rel.weight.grad += rel_grad * (num/totle_interactions)
-                for i,param in enumerate(self.aggregator.parameters()):
-                    param.grad+= model_grad[i]*(num/totle_interactions)
+                # self.rel.weight.grad += rel_grad * (num/totle_interactions)
+                # for i,param in enumerate(self.aggregator.parameters()):
+                #     param.grad+= model_grad[i]*(num/totle_interactions)
 
     def recode_all(self, grads):
         for (usr_grad, ent_grad, rel_grad) in grads:
