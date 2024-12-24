@@ -257,11 +257,25 @@ class Worker(object):
         comm_device='cpu'
         if self.conf.graph.client_id != -1:
             gather_dict = {}
-            # flatten_model = TensorBuffer(list(self.model.state_dict().values()))
             gather_dict['model_grad']=[param.grad.to(comm_device) for param in self.model.parameters()]
-
+            
             # self.usr,self.ent,self.rel的梯度
             gather_dict['embeddings_grad']= self.model.get_embed_grad() if self.conf.graph.client_id != -1 else [None] * 3
+            # print('嵌入层梯度',gather_dict['embeddings_grad'])
+            # print('嵌入层梯度noise',self._add_Laplace_noise(gather_dict['embeddings_grad']))
+            # gather_dict['embeddings_grad']=
+            # breakpoint()
+#           //ldp
+#             model_grad1 =[param for param in self.model.parameters()]
+#             print('嵌入层梯度noise',model_grad1)
+#             print('嵌',self._add_Laplace_noise(model_grad1))
+    
+#             model_grad =[param.grad.to(comm_device) for param in self.model.parameters()]
+#             gather_dict['model_grad']=self._add_Laplace_noise(model_grad)
+#             embeddings_grad =self.model.get_embed_grad() if self.conf.graph.client_id != -1 else [None] * 3
+#             gather_dict['embeddings_grad']=self._add_Laplace_noise(embeddings_grad)
+            # print('嵌入层梯度noise',gather_dict['embeddings_grad'])
+            # print()
         else:
             gather_dict=None
 
@@ -304,3 +318,66 @@ class Worker(object):
 
     def _is_finished_one_comm_round(self):
         return True if self.conf.epoch_ >= self.conf.local_n_epochs else False
+    
+    def __add_Gaussian_noise(self,paramList):
+        # 差分隐私参数
+        noise_scale = 1.0  # 噪声的尺度（标准差）
+        epsilon = self.conf.epsilon  # 隐私预算
+        for param in weights.items():
+            # 将参数转换为张量
+            weight_tensor = torch.tensor(value)
+
+            # 从正态分布中生成噪声
+            noise = torch.randn_like(weight_tensor) * noise_scale
+
+            # 将噪声添加到权重中
+            weight_tensor += noise
+
+            # 没有直接修改原始字典中的值，而是创建新的带有噪声的权重张量
+            weights[key] = weight_tensor.tolist()
+    # def _add_Laplace_noise(self,x):
+    #     '''添加拉普拉斯噪声'''
+    #     alpha = x.min().item()  # 获取梯度张量的最小值
+    #     beta = x.max().item()   # 获取梯度张量的最大值
+    #     # alpha = -1.0  # 例如，设置一个固定的下限
+    #     # beta = 1.0    # 例如，设置一个固定的上限
+    #     d = x.size(1)
+    #     sensitivity = (beta - alpha) * d
+    #     scale = torch.ones_like(x) * (sensitivity / self.conf.epsilon)
+    #     out = torch.distributions.Laplace(x, scale).sample()
+    #     out = torch.clip(out, min=alpha, max=beta)
+    #     return out
+    
+    def _add_Laplace_noise(self, gradients):
+        '''对多个不同形状的梯度添加拉普拉斯噪声'''
+
+        # 初始化一个用于存储带噪声的梯度列表
+        noisy_gradients = []
+
+        # 遍历每个梯度，添加噪声
+        for x in gradients:
+            # 获取梯度的最小值和最大值
+            alpha = x.min().item()
+            beta = x.max().item()
+            print('alpha',alpha,'beta',beta)
+            # 获取梯度的维度
+            # d = x.numel()  # 获取元素总数，适用于任意形状的张量
+           
+            if x.dim() > 1:
+                d = x.size(1) # 如果维度大于1，则返回 size(1)
+            else:
+                d = x.size(0)  # 否则返回 size(0)
+            # 计算灵敏度：可以按元素数进行计算
+            sensitivity = (beta - alpha)
+            # 计算噪声的尺度
+            scale = (sensitivity / self.conf.epsilon* 100)
+            # 添加拉普拉斯噪声
+            # print('scale==',scale,sensitivity,d,(beta - alpha))
+            noisy_x  = torch.distributions.Laplace(x, scale).sample()  # 创建拉普拉斯分布, 生成带噪声的梯度
+            # 对噪声进行截断，确保在 alpha 和 beta 之间
+            # noisy_x = torch.clip(noisy_x, min=alpha, max=beta)
+            # 将带噪声的梯度添加到列表
+            noise = torch.randn_like(x) 
+            noisy_gradients.append(noise+x)
+        # 返回带噪声的梯度
+        return noisy_gradients

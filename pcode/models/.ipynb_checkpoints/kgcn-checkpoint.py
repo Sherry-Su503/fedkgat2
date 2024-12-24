@@ -32,6 +32,7 @@ class Aggregator(torch.nn.Module):
         # 前向传播函数,act：激活函数（如 ReLU、Sigmoid 等）
         # self_vectors：当前节点的特征向量（形状为 [batch_size, 1, dim]）。
         batch_size = user_embeddings.size(0)
+        # print('Aggregator--user_embeddings',user_embeddings)
         if batch_size != self.batch_size:
             self.batch_size = batch_size
 
@@ -140,6 +141,7 @@ class KGCN_kg(torch.nn.Module):
         # print('forward--usr_id',usr_id[0].shape)
         # # print('forward--item_ids',item_ids[0].shape)
         # print('forward--ent_id',ent_id[0].shape)
+        # print('forward--user_embeddings',user_embeddings)
 
         entities = [entity.to(self.device) for entity in ent_id]
         relations = [relation.to(self.device) for relation in rel_id]
