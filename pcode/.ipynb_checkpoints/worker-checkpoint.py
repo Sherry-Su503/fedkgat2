@@ -259,8 +259,12 @@ class Worker(object):
             gather_dict = {}
             # flatten_model = TensorBuffer(list(self.model.state_dict().values()))
             # print('_send_model_to_master,self.model.parameters()',self.model.parameters())
-            # for param in self.model.parameters():
-            #     print(param.grad)
+            # p_list =[param for param in self.model.parameters()]
+            # print('params len',len(p_list))
+            # for param in p_list:
+            #     print('param',param)
+            #     print('param.grad',param.grad)
+            # breakpoint()
             gather_dict['model_grad']=[param.grad.to(comm_device) for param in self.model.parameters()]
 
             # self.usr,self.ent的梯度

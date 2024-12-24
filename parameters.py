@@ -525,7 +525,7 @@ def experiment_paramenter(conf):
         conf.n_iter = 1 # 迭代次数
         conf.weight_decay = 1e-5
         # conf.lr = 5e-5
-        conf.lr=1e-1
+        conf.lr=1e-2
         conf.batch_size = 32
     elif conf.data == 'book':
         conf.neighbor_sample_size = 8
@@ -546,14 +546,14 @@ def experiment_paramenter(conf):
 # add debug environment
 def debug_parameter(conf):
     # debug
-    # debug=False
-    debug=True
+    debug=False
+    # debug=True
 
     # conf.data = 'book'
     if debug==True:
         os.environ['WANDB_MODE'] = 'offline'
-        conf.n_participated = 25
-        conf.workers = 25
+        conf.n_participated = 2
+        conf.workers = 2
         conf.validation_interval = 1
         conf.topk_eval_interval = 1
     else:
@@ -567,7 +567,8 @@ def debug_parameter(conf):
     conf.n_comm_rounds = 2000*32
     conf.aggregator = "sum"
     conf.same_arch=True
-    conf.experiment=f'fedKgcn_new_nokg_{conf.data}_np_{conf.n_participated}_nc_{conf.n_comm_rounds}'
+    #v1----使用全部交互项目聚合用户向量
+    conf.experiment=f'fedGnn_all_{conf.data}_np_{conf.n_participated}_nc_{conf.n_comm_rounds}'
     conf.k_list= [20, 50, 100]
     conf.local_batch_size = None
     return conf

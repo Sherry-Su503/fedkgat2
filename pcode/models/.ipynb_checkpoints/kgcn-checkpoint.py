@@ -3,6 +3,7 @@ from collections import defaultdict
 
 import torch
 import torch.nn.functional as F
+import math
 
 __all__ = ["kgcn", "kgcn_aggregate", "kgcn_kg"]
 
@@ -80,6 +81,7 @@ class Aggregator(torch.nn.Module):
 
         return neighbors_aggregated
 
+
 class KGCN_kg(torch.nn.Module):
     # sherry-Su基于KGCN模型自己重写
     # 基于知识图谱的图神经网络
@@ -95,7 +97,7 @@ class KGCN_kg(torch.nn.Module):
         # self.kg = kg
         self.device = device
         # 用于聚合邻居节点特征的模块
-        # self.aggregator = Aggregator(self.batch_size, self.dim, args.aggregator)
+        self.aggregator = Aggregator2(self.batch_size, self.dim)
 
         # self._gen_adj()  # 对KG中的每一个head,固定采样n_neighbor个邻居节点和关系
         self.id_map = {}
@@ -145,9 +147,6 @@ class KGCN_kg(torch.nn.Module):
         user_embeddings = self.usr(usr_id).squeeze (dim=1)
         # print('forward--item_ids',item_ids[0].shape)
         item_embeddings = self.ent(item_ids).squeeze (dim=1)
-        
-        
-
         #-----------------------------------kg部分--------------------------------
         # entities = [entity.to(self.device) for entity in ent_id]
         # relations = [relation.to(self.device) for relation in rel_id]
@@ -162,9 +161,13 @@ class KGCN_kg(torch.nn.Module):
         # print('forward--item_ids',entities[0].shape)
         # print('forward--item_embeddings1',item_embeddings1.shape)
         # print('forward--item_embeddings',item_embeddings.shape)
-        
+        user_embeddings = self.aggregator(item_embeddings,user_embeddings)
+        # print('user_embeddings1--', user_embeddings1,user_embeddings1.shape)
+        # print('user_embeddings--', user_embeddings,user_embeddings.shape)
         scores = (user_embeddings * item_embeddings).sum (dim=1)  # 计算评分：计算用户与聚合后的实体嵌入的相似度（点积）
-        # print('scores--', scores)
+        # scores = (user_embeddings * item_embeddings).sum (dim=1)  # 计算评分：计算用户与聚合后的实体嵌入的相似度（点积）
+        # print('scores1--', torch.sigmoid (scores1),torch.sigmoid (scores1).shape)
+        # print('scores--', torch.sigmoid (scores),torch.sigmoid (scores).shape)
         # breakpoint()
         return torch.sigmoid (scores)  # 通过 torch.sigmoid 激活函数映射到 [0, 1] 范围内，表示预测的相似度评分
 
@@ -300,8 +303,8 @@ class KGCN_kg(torch.nn.Module):
                 self.usr.weight.grad += usr_grad * (num/totle_interactions)
                 self.ent.weight.grad += ent_grad * (num/totle_interactions)
                 # self.rel.weight.grad += rel_grad * (num/totle_interactions)
-                # for i,param in enumerate(self.aggregator.parameters()):
-                #     param.grad+= model_grad[i]*(num/totle_interactions)
+                for i,param in enumerate(self.aggregator.parameters()):
+                    param.grad+= model_grad[i]*(num/totle_interactions)
 
     def recode_all(self, grads):
         for (usr_grad, ent_grad, rel_grad) in grads:
@@ -607,3 +610,58 @@ def kgcn_aggregate(conf):
     return KGCN_aggregator(batch_size=conf.batch_size, dim=conf.dim, n_neighbor=conf.neighbor_sample_size, aggregator=conf.aggregator, n_iter=conf.n_iter)
 
 
+class Aggregator2(torch.nn.Module):
+    '''
+    '''
+
+    def __init__(self, batch_size, dim):
+        super(Aggregator2, self).__init__()
+        self.batch_size = batch_size
+        self.dim = dim  # 16
+        self.W1 = nn.Linear(dim, dim, bias=True)  # 权重矩阵 W1, 输入和输出维度都是dim
+        self.W2 = nn.Linear(1, dim, bias=True)   # 权重矩阵 W2, 输入是点积的标量，所以输入维度是1，输出维度是dim
+
+    def forward(self,item_embeddings, user_embeddings):
+        #[1, 16]，[19, 16]
+        # print('user_embeddings.shape',user_embeddings.shape)
+        # print('item_embeddings.shape',item_embeddings.shape)
+        #user_embeddings->[1, dim]   item_embeddings->[batch_size,dim]
+        batch_size = item_embeddings.size(0)
+        k = 1/item_embeddings.size(1)
+       
+        if batch_size != self.batch_size:
+            self.batch_size = batch_size
+        # print(batch_size,self.dim)
+        # 计算点积：user_embeddings 与 item_embeddings 进行逐个计算
+        # user_embeddings = user_embeddings.reshape((self.batch_size, -1))
+        # 计算点积
+        # print('user_embeddings',user_embeddings,user_embeddings.shape)
+        # print('item_embeddings',item_embeddings,item_embeddings.shape)
+        # [batch_size]
+        dot_product = (user_embeddings * item_embeddings).sum(dim=-1)  # shape: [19]
+        # print('dot_product',dot_product,dot_product.shape)
+
+        # [batch_size,dim]
+        b = self.W2(dot_product.unsqueeze(1) )  # shape: [19, 1]->[19, dim]    
+        # 计算权重矩阵 W1 变换后的用户嵌入 (作用于user_embeddings)
+        user_masg = self.W1(user_embeddings)  # shape: [dim]
+        a = self.W1(item_embeddings)  # shape: [19, 16]
+        # print('a',a,a.shape)
+        # print('b',b,b.shape)
+
+        # 对每个项目的 a 和 b 求和
+        # [batch_size,dim]
+        result = (a + b)*k # shape: [19, 16]
+        # print('result',result,result.shape)
+        result = result.sum(dim=0)
+        # print('sum_result',result,result.shape)
+        # 最终通过 Sigmoid 函数
+        output = result + user_masg  # 将用户的嵌入加到输出中
+        # print('user_masg',user_masg,user_masg.shape)
+        # print('output',output,output.shape)
+        # print('output', torch.tanh(output), torch.tanh(output).shape)
+        # breakpoint()
+
+        # print("Output:", output)  # 输出最终结果
+        # print("input:", user_embeddings1)  # 输出最终结果
+        return  torch.tanh(output)
