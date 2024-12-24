@@ -532,7 +532,8 @@ def experiment_paramenter(conf):
         conf.dim = 64
         conf.n_iter = 1
         conf.weight_decay = 2e-5
-        conf.lr = 2e-4
+        # conf.lr = 2e-4
+        conf.lr=1e-1
         conf.batch_size = 32
     elif conf.data == 'movie':
         conf.neighbor_sample_size = 4
@@ -545,14 +546,14 @@ def experiment_paramenter(conf):
 # add debug environment
 def debug_parameter(conf):
     # debug
-    debug=False
-    # debug=True
+    # debug=False
+    debug=True
 
     # conf.data = 'book'
     if debug==True:
         os.environ['WANDB_MODE'] = 'offline'
-        conf.n_participated = 4
-        conf.workers = 4
+        conf.n_participated = 25
+        conf.workers = 25
         conf.validation_interval = 1
         conf.topk_eval_interval = 1
     else:
