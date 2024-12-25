@@ -552,8 +552,8 @@ def debug_parameter(conf):
     # conf.data = 'book'
     if debug==True:
         os.environ['WANDB_MODE'] = 'offline'
-        conf.n_participated = 2
-        conf.workers = 2
+        conf.n_participated = 32
+        conf.workers = 32
         conf.validation_interval = 1
         conf.topk_eval_interval = 1
     else:
@@ -568,7 +568,10 @@ def debug_parameter(conf):
     conf.aggregator = "sum"
     conf.same_arch=True
     #v1----使用全部交互项目聚合用户向量
-    conf.experiment=f'fedGnn_all_{conf.data}_np_{conf.n_participated}_nc_{conf.n_comm_rounds}'
-    conf.k_list= [20, 50, 100]
+    # conf.experiment=f'fedGnn_all_{conf.data}_lr_{conf.lr}'
+    conf.experiment=f'fedGnn_all_ldp3_{conf.data}_lr_{conf.lr}_e_{conf.epsilon}'
+    conf.k_list= [1,2,5,10,20, 50, 100]
     conf.local_batch_size = None
+    conf.epsilon = 10.0  # 隐私预算
+    conf.sensitivity = 1.0
     return conf

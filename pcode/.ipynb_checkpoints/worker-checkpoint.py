@@ -262,13 +262,17 @@ class Worker(object):
             # p_list =[param for param in self.model.parameters()]
             # print('params len',len(p_list))
             # for param in p_list:
-            #     print('param',param)
             #     print('param.grad',param.grad)
+            model_grad = [param.grad.to(comm_device) for param in self.model.parameters()]
+            gather_dict['model_grad']=self._add_Laplace_noise3(model_grad)
+            # print('model_grad',gather_dict['model_grad'])
+            # print('model_grad LDP1', self._add_Laplace_noise(gather_dict['model_grad']))
+            # print('model_grad LDP2', self._add_Laplace_noise2(gather_dict['model_grad']))
+            # print('model_grad LDP3', self._add_Laplace_noise3(gather_dict['model_grad']))
             # breakpoint()
-            gather_dict['model_grad']=[param.grad.to(comm_device) for param in self.model.parameters()]
-
             # self.usr,self.ent的梯度
-            gather_dict['embeddings_grad']= self.model.get_embed_grad() if self.conf.graph.client_id != -1 else [None] * 2
+            embeddings_grad = self.model.get_embed_grad() if self.conf.graph.client_id != -1 else [None] * 2
+            gather_dict['embeddings_grad']= self._add_Laplace_noise3(embeddings_grad)
         else:
             gather_dict=None
 
@@ -311,3 +315,81 @@ class Worker(object):
 
     def _is_finished_one_comm_round(self):
         return True if self.conf.epoch_ >= self.conf.local_n_epochs else False
+
+    
+    def _add_Laplace_noise(self, gradients):
+        '''对多个不同形状的梯度替换为均值为原始值的拉普拉斯噪声'''
+
+        # 初始化一个用于存储带噪声的梯度列表
+        noisy_gradients = []
+        # 遍历每个梯度，添加噪声
+        for x in gradients:
+            # 添加拉普拉斯噪声
+            # print('scale==',scale,sensitivity,d,(beta - alpha))
+            noisy_x  = torch.distributions.Laplace(x, self.conf.sensitivity / self.conf.epsilon).sample()  # 创建拉普拉斯分布, 生成带噪声的梯度
+            # 对噪声进行截断，确保在 alpha 和 beta 之间
+            # noisy_x = torch.clip(noisy_x, min=alpha, max=beta) 
+            
+            noisy_gradients.append(noisy_x)
+            
+        return noisy_gradients
+
+    def _add_Laplace_noise2(self, gradients):
+        '''对多个不同形状的梯度添加均值0的拉普拉斯噪声'''
+
+        # 初始化一个用于存储带噪声的梯度列表
+        noisy_gradients = []
+
+        # 遍历每个梯度，添加噪声
+        for x in gradients:
+             # 使用 torch.distributions.Laplace(0,scale)
+            laplace_dist = torch.distributions.Laplace(loc=torch.zeros_like(x), scale=self.conf.sensitivity / self.conf.epsilon)
+            noise = laplace_dist.sample()  # 生成与梯度相同形状的噪声
+            noisy_gradients.append(noise+x)
+        # 返回带噪声的梯度
+        return noisy_gradients
+    
+    def _add_Laplace_noise3(self, gradients):
+        '''非零元素替换为均值本身的噪声
+        为0元素添加均值为0的噪声'''
+
+        # 初始化一个用于存储带噪声的梯度列表
+        noisy_gradients = []
+        scale =self.conf.sensitivity / self.conf.epsilon
+
+        # 遍历每个梯度，添加噪声
+        for x in gradients:
+             # 使用 torch.distributions.Laplace(0,scale)
+            # 创建一个与 gradients 形状相同的张量，值为零
+            noise = torch.zeros_like(x)
+            # 对非零梯度添加噪声，均值为该梯度的噪声
+            non_zero_mask = x != 0  # 找到非零梯度的位置
+
+            # 为非零梯度的元素生成拉普拉斯噪声，均值为该元素值，尺度为 scale
+            laplace_dist_non_zero = torch.distributions.Laplace(loc=x, scale=scale)
+            noise[non_zero_mask] = laplace_dist_non_zero.sample()[non_zero_mask]
+
+            # 对零梯度添加噪声，均值为零
+            laplace_dist_zero = torch.distributions.Laplace(loc=torch.zeros_like(x), scale=scale)
+            noise[~non_zero_mask] = laplace_dist_zero.sample()[~non_zero_mask]
+            noisy_gradients.append(noise)
+
+        # 返回带噪声的梯度
+        return noisy_gradients
+    
+    def _add_random_noise(self, gradients):
+        '''随机扰动'''
+
+        # 初始化一个用于存储带噪声的梯度列表
+        noisy_gradients = []
+        scale =self.conf.sensitivity / self.conf.epsilon
+
+        # 遍历每个梯度，添加噪声
+        for x in gradients:
+             # 使用 torch.distributions.Laplace(0,scale)
+            # 创建一个与 gradients 形状相同的张量，值为零
+            noise = torch.randn_like(x) * scale
+            noisy_gradients.append(noise+x)
+
+        # 返回带噪声的梯度
+        return noisy_gradients
