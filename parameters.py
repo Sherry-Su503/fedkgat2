@@ -566,7 +566,11 @@ def debug_parameter(conf):
     conf.n_comm_rounds = 2000*32
     conf.aggregator = "sum"
     conf.same_arch=True
-    conf.experiment=f'fedKgcn_new_{conf.data}_np_{conf.n_participated}_nc_{conf.n_comm_rounds}'
-    conf.k_list= [20, 50, 100]
+    conf.k_list= [1,2,5,10,20, 50, 100]
     conf.local_batch_size = None
+    conf.epsilon = 20.0  # 隐私预算
+    conf.sensitivity = 1.0
+    conf.scale1 = 1e-2
+    conf.scale2 = 1e-3
+    conf.experiment=f'fedkgcn_ldp3_{conf.data}_lr_0.01_λ_{conf.scale1}/{conf.scale2}'
     return conf
