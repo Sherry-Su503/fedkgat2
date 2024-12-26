@@ -264,6 +264,9 @@ class Worker(object):
             # for param in p_list:
             #     print('param.grad',param.grad)
             model_grad = [param.grad.to(comm_device) for param in self.model.parameters()]
+            # print('model_grad')
+            # for grad in model_grad:
+            #     print(grad.mean())
             gather_dict['model_grad']=self._add_Laplace_noise3(model_grad)
             # print('model_grad',gather_dict['model_grad'])
             # print('model_grad LDP1', self._add_Laplace_noise(gather_dict['model_grad']))
@@ -272,6 +275,10 @@ class Worker(object):
             # breakpoint()
             # self.usr,self.ent的梯度
             embeddings_grad = self.model.get_embed_grad() if self.conf.graph.client_id != -1 else [None] * 2
+            # print('embeddings_grad')
+            # for grad in embeddings_grad:
+            #     print(grad.mean())
+            # breakpoint()
             gather_dict['embeddings_grad']= self._add_Laplace_noise3(embeddings_grad)
         else:
             gather_dict=None
@@ -366,16 +373,17 @@ class Worker(object):
             non_zero_mask = x != 0  # 找到非零梯度的位置
 
             # 为非零梯度的元素生成拉普拉斯噪声，均值为该元素值，尺度为 scale
-            laplace_dist_non_zero = torch.distributions.Laplace(loc=x, scale=scale)
+            laplace_dist_non_zero = torch.distributions.Laplace(loc=x, scale=self.conf.scale1)
             noise[non_zero_mask] = laplace_dist_non_zero.sample()[non_zero_mask]
 
             # 对零梯度添加噪声，均值为零
-            laplace_dist_zero = torch.distributions.Laplace(loc=torch.zeros_like(x), scale=scale)
+            laplace_dist_zero = torch.distributions.Laplace(loc=torch.zeros_like(x), scale=self.conf.scale2)
             noise[~non_zero_mask] = laplace_dist_zero.sample()[~non_zero_mask]
             noisy_gradients.append(noise)
 
         # 返回带噪声的梯度
         return noisy_gradients
+    
     
     def _add_random_noise(self, gradients):
         '''随机扰动'''
