@@ -140,7 +140,6 @@ class KGCN_kg(torch.nn.Module):
         user_embeddings = self.usr(usr_id).squeeze (dim=1)
         # print('forward--user_embeddings  before',user_embeddings.shape)
         item_embeddings_u = self.ent(item_ids_u).squeeze (dim=1)
-        user_embeddings = self.aggregator2(item_embeddings_u,user_embeddings)
         # print('forward--usr_id',usr_id[0].shape)
         # # print('forward--item_ids',item_ids[0].shape)
         # print('forward--ent_id',ent_id[0].shape)
@@ -154,7 +153,13 @@ class KGCN_kg(torch.nn.Module):
         # print('forward--entities_embeddings',entities_embeddings[0].shape)
         # print('forward--relations_embeddings',relations_embeddings[0].shape)
         item_embeddings = self._aggregate (user_embeddings, entities_embeddings, relations_embeddings)  # 单层加权求和
+        
+        
+        # 先用原始的user_embeddings用于协助项目item_embeddings聚合
+        # 再用原始的item_embeddings_u聚合user_embeddings
+        user_embeddings = self.aggregator2(item_embeddings_u,user_embeddings)
 
+        
         scores = (user_embeddings * item_embeddings).sum (dim=1)  # 计算评分：计算用户与聚合后的实体嵌入的相似度（点积）
         # print('scores--', torch.sigmoid (scores),torch.sigmoid (scores).shape)
         # breakpoint()

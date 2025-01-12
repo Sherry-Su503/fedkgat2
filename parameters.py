@@ -525,7 +525,7 @@ def experiment_paramenter(conf):
         conf.n_iter = 1 # 迭代次数
         conf.weight_decay = 1e-5
         # conf.lr = 5e-5
-        conf.lr = 5e-2
+        conf.lr = 1e-2
         conf.batch_size = 32
     elif conf.data == 'book':
         conf.neighbor_sample_size = 8
@@ -545,8 +545,8 @@ def experiment_paramenter(conf):
 # add debug environment
 def debug_parameter(conf):
     # debug
-    debug=False
-    # debug=True
+    # debug=False
+    debug=True
 
     # conf.data = 'book'
     if debug==True:
@@ -568,9 +568,11 @@ def debug_parameter(conf):
     conf.same_arch=True
     conf.k_list= [1,2,5,10,20, 50, 100]
     conf.local_batch_size = None
-    conf.epsilon = 20.0  # 隐私预算
+    conf.epsilon = 2.0  # 隐私预算
     conf.sensitivity = 1.0
-    conf.scale1 = 1e-2
-    conf.scale2 = 1e-3
-    conf.experiment=f'fedkgcn_ldp3_{conf.data}_lr_0.01_λ_{conf.scale1}/{conf.scale2}'
+    conf.scale1 = 5e-3
+    conf.scale2 = 5e-5
+    # conf.experiment=f'fedkgcn_{conf.data}_lr_0.01'
+    conf.experiment=f'fedkgcn_ldp3_{conf.data}_lr_0.01_e_{conf.epsilon}'
+    # conf.experiment=f'fedkgcn_ldp3_{conf.data}_lr_0.01_λ_{conf.scale1}/{conf.scale2}'
     return conf

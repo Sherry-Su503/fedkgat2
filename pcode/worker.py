@@ -7,6 +7,7 @@ import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
 from math import ceil
+import numpy as np
 
 import pcode.create_metrics as create_metrics
 import pcode.create_model as create_model
@@ -353,22 +354,32 @@ class Worker(object):
 
         # 初始化一个用于存储带噪声的梯度列表
         noisy_gradients = []
-        scale =self.conf.sensitivity / self.conf.epsilon
+        # scale =self.conf.sensitivity / self.conf.epsilon
 
         # 遍历每个梯度，添加噪声
         for x in gradients:
+            # mean_grad = np.mean(x)
+            # print('mean_grad',mean_grad)
+            # x = np.abs(x)
+            sensitivity = np.abs(x.mean()).item()
+            scale_ldp = sensitivity / self.conf.epsilon
+            # print('scale_ldp',scale_ldp)
+            # print('sensitivity',sensitivity)
+            # breakpoint()
              # 使用 torch.distributions.Laplace(0,scale)
-            # 创建一个与 gradients 形状相同的张量，值为零
+            # 创建一个与 x 形状相同的张量，值为零
             noise = torch.zeros_like(x)
             # 对非零梯度添加噪声，均值为该梯度的噪声
             non_zero_mask = x != 0  # 找到非零梯度的位置
 
             # 为非零梯度的元素生成拉普拉斯噪声，均值为该元素值，尺度为 scale
-            laplace_dist_non_zero = torch.distributions.Laplace(loc=x, scale=self.conf.scale1)
+            # laplace_dist_non_zero = torch.distributions.Laplace(loc=x, scale=self.conf.scale1)
+            laplace_dist_non_zero = torch.distributions.Laplace(loc=x, scale=scale_ldp)
             noise[non_zero_mask] = laplace_dist_non_zero.sample()[non_zero_mask]
 
             # 对零梯度添加噪声，均值为零
-            laplace_dist_zero = torch.distributions.Laplace(loc=torch.zeros_like(x), scale=self.conf.scale2)
+            # laplace_dist_zero = torch.distributions.Laplace(loc=torch.zeros_like(x), scale=self.conf.scale2)
+            laplace_dist_zero = torch.distributions.Laplace(loc=torch.zeros_like(x), scale=scale_ldp)
             noise[~non_zero_mask] = laplace_dist_zero.sample()[~non_zero_mask]
             noisy_gradients.append(noise)
 
