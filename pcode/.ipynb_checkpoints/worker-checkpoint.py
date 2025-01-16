@@ -7,6 +7,7 @@ import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
 from math import ceil
+import numpy as np
 
 import pcode.create_metrics as create_metrics
 import pcode.create_model as create_model
@@ -264,7 +265,7 @@ class Worker(object):
             # for param in p_list:
             #     print('param.grad',param.grad)
             model_grad = [param.grad.to(comm_device) for param in self.model.parameters()]
-            gather_dict['model_grad']=self._add_Laplace_noise3(model_grad)
+            gather_dict['model_grad']=self._add_Laplace_noise(model_grad)
             # print('model_grad',gather_dict['model_grad'])
             # print('model_grad LDP1', self._add_Laplace_noise(gather_dict['model_grad']))
             # print('model_grad LDP2', self._add_Laplace_noise2(gather_dict['model_grad']))
@@ -272,7 +273,7 @@ class Worker(object):
             # breakpoint()
             # self.usr,self.ent的梯度
             embeddings_grad = self.model.get_embed_grad() if self.conf.graph.client_id != -1 else [None] * 2
-            gather_dict['embeddings_grad']= self._add_Laplace_noise3(embeddings_grad)
+            gather_dict['embeddings_grad']= self._add_Laplace_noise(embeddings_grad)
         else:
             gather_dict=None
 
@@ -325,11 +326,21 @@ class Worker(object):
         # 遍历每个梯度，添加噪声
         for x in gradients:
             # 添加拉普拉斯噪声
+            # print(x.size())
+            tup = x.size()
+            if len(tup) >1:
+                 d = tup[1]
+            else:
+                 d = tup[0]
+            # breakpoint()
+           
+            sensitivity = (np.abs(x.mean()).item())*d*10
+            # sensitivity = ((x.max().item())-(x.min().item()))/d
+            scale_laps = sensitivity / self.conf.epsilon
             # print('scale==',scale,sensitivity,d,(beta - alpha))
-            noisy_x  = torch.distributions.Laplace(x, self.conf.sensitivity / self.conf.epsilon).sample()  # 创建拉普拉斯分布, 生成带噪声的梯度
+            noisy_x  = torch.distributions.Laplace(x, scale_laps).sample()  # 创建拉普拉斯分布, 生成带噪声的梯度
             # 对噪声进行截断，确保在 alpha 和 beta 之间
             # noisy_x = torch.clip(noisy_x, min=alpha, max=beta) 
-            
             noisy_gradients.append(noisy_x)
             
         return noisy_gradients
@@ -355,10 +366,17 @@ class Worker(object):
 
         # 初始化一个用于存储带噪声的梯度列表
         noisy_gradients = []
-        scale =self.conf.sensitivity / self.conf.epsilon
+        # scale =self.conf.sensitivity / self.conf.epsilon
 
         # 遍历每个梯度，添加噪声
         for x in gradients:
+            # sensitivity = (np.abs(x.mean())*10).item()  # 张量的均值
+            sensitivity = x.abs().max().item()  #张量中元素最大值
+            # sensitivity = ((x.max()-x.min())/10).item()
+            scale_laps = sensitivity / self.conf.epsilon
+            # print('sensitivity',sensitivity)
+            # print('scale_laps',scale_laps)
+            # breakpoint()
              # 使用 torch.distributions.Laplace(0,scale)
             # 创建一个与 gradients 形状相同的张量，值为零
             noise = torch.zeros_like(x)
@@ -366,11 +384,11 @@ class Worker(object):
             non_zero_mask = x != 0  # 找到非零梯度的位置
 
             # 为非零梯度的元素生成拉普拉斯噪声，均值为该元素值，尺度为 scale
-            laplace_dist_non_zero = torch.distributions.Laplace(loc=x, scale=scale)
+            laplace_dist_non_zero = torch.distributions.Laplace(loc=x, scale=scale_laps)
             noise[non_zero_mask] = laplace_dist_non_zero.sample()[non_zero_mask]
 
             # 对零梯度添加噪声，均值为零
-            laplace_dist_zero = torch.distributions.Laplace(loc=torch.zeros_like(x), scale=scale)
+            laplace_dist_zero = torch.distributions.Laplace(loc=torch.zeros_like(x), scale=scale_laps)
             noise[~non_zero_mask] = laplace_dist_zero.sample()[~non_zero_mask]
             noisy_gradients.append(noise)
 
@@ -393,3 +411,25 @@ class Worker(object):
 
         # 返回带噪声的梯度
         return noisy_gradients
+    
+    def __add_gaussian_noise(self, gradients):
+        '''添加高斯噪声'''
+        delta = 1e-10
+        noisy_gradients = []
+        for x in gradients:
+            len_interval = x.max()-x.min()
+            if torch.is_tensor(len_interval) and len(len_interval) > 1:
+                sensitivity = torch.norm(len_interval, p=2)
+            else:
+                d = x.size(1)
+                sensitivity = len_interval * math.sqrt(d)
+            sigma = sensitivity * math.sqrt(2 * math.log(1.25 / delta)) / self.conf.epsilon
+            out = torch.normal(mean=x, std=sigma)
+            noisy_gradients.append(out)
+        return noisy_gradients
+
+    def calibrate_gaussian_mechanism(self):
+
+        return 
+
+                                                                                               

@@ -24,9 +24,9 @@ def get_args():
     parser = add_argument()
     conf=parse_args_with_yaml(parser)
     set_environ()
-    debug_parameter(conf)
     complete_missing_config(conf)
     experiment_paramenter(conf)
+    debug_parameter(conf)
     validate_config(conf)
     return conf
 
@@ -552,8 +552,8 @@ def debug_parameter(conf):
     # conf.data = 'book'
     if debug==True:
         os.environ['WANDB_MODE'] = 'offline'
-        conf.n_participated = 32
-        conf.workers = 32
+        conf.n_participated = 2
+        conf.workers = 2
         conf.validation_interval = 1
         conf.topk_eval_interval = 1
     else:
@@ -567,11 +567,14 @@ def debug_parameter(conf):
     conf.n_comm_rounds = 2000*32
     conf.aggregator = "sum"
     conf.same_arch=True
-    #v1----使用全部交互项目聚合用户向量
-    # conf.experiment=f'fedGnn_all_{conf.data}_lr_{conf.lr}'
-    conf.experiment=f'fedGnn_all_ldp3_{conf.data}_lr_{conf.lr}_e_{conf.epsilon}'
     conf.k_list= [1,2,5,10,20, 50, 100]
     conf.local_batch_size = None
     conf.epsilon = 10.0  # 隐私预算
     conf.sensitivity = 1.0
+    conf.scale1 = 1e-2
+    conf.scale2 = 1e-3
+    # conf.experiment=f'fedkgcn_ldp3_{conf.data}_lr_0.01_λ_{conf.scale1}/{conf.scale2}'
+    #v1----使用全部交互项目聚合用户向量
+    # conf.experiment=f'fedGnn_all_{conf.data}_lr_{conf.lr}'
+    conf.experiment=f'fedGnn_all_ldp_{conf.data}_lr_{conf.lr}_e_{conf.epsilon}'
     return conf
