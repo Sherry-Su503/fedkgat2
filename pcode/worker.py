@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from math import ceil
 import numpy as np
+import math
 
 import pcode.create_metrics as create_metrics
 import pcode.create_model as create_model
@@ -265,7 +266,8 @@ class Worker(object):
             # for param in p_list:
             #     print('param.grad',param.grad)
             model_grad = [param.grad.to(comm_device) for param in self.model.parameters()]
-            gather_dict['model_grad']=self._add_Laplace_noise(model_grad)
+            gather_dict['model_grad']=self._add_noise(model_grad)
+            # gather_dict['model_grad']= model_grad
             # print('model_grad',gather_dict['model_grad'])
             # print('model_grad LDP1', self._add_Laplace_noise(gather_dict['model_grad']))
             # print('model_grad LDP2', self._add_Laplace_noise2(gather_dict['model_grad']))
@@ -273,7 +275,8 @@ class Worker(object):
             # breakpoint()
             # self.usr,self.ent的梯度
             embeddings_grad = self.model.get_embed_grad() if self.conf.graph.client_id != -1 else [None] * 2
-            gather_dict['embeddings_grad']= self._add_Laplace_noise(embeddings_grad)
+            gather_dict['embeddings_grad']= self._add_noise(embeddings_grad)
+            # gather_dict['embeddings_grad']= embeddings_grad
         else:
             gather_dict=None
 
@@ -316,7 +319,14 @@ class Worker(object):
 
     def _is_finished_one_comm_round(self):
         return True if self.conf.epoch_ >= self.conf.local_n_epochs else False
-
+    
+    def _add_noise(self,grads):
+        if self.conf.ldp == 'laplace':
+            return self._add_Laplace_noise(grads)
+        if self.conf.ldp == 'gaussian':
+            return self._add_gaussian_noise(grads)
+        else:
+            return grads
     
     def _add_Laplace_noise(self, gradients):
         '''对多个不同形状的梯度替换为均值为原始值的拉普拉斯噪声'''
@@ -412,17 +422,27 @@ class Worker(object):
         # 返回带噪声的梯度
         return noisy_gradients
     
-    def __add_gaussian_noise(self, gradients):
+    def _add_gaussian_noise(self, gradients):
         '''添加高斯噪声'''
-        delta = 1e-10
+        delta = 1e-3
         noisy_gradients = []
         for x in gradients:
-            len_interval = x.max()-x.min()
-            if torch.is_tensor(len_interval) and len(len_interval) > 1:
+            # print('X',x)
+            # len_interval = x.max()-x.min()
+            len_interval = np.abs(x.mean())
+            # print('len_interval',len_interval)
+            if torch.is_tensor(len_interval) > 1:
                 sensitivity = torch.norm(len_interval, p=2)
+                # print('sensitivity1',sensitivity)
             else:
-                d = x.size(1)
-                sensitivity = len_interval * math.sqrt(d)
+                tup = x.size()
+                if len(tup) >1:
+                     d = tup[1]
+                else:
+                     d = tup[0]
+                # sensitivity = len_interval * math.sqrt(d)
+                sensitivity = len_interval*d*10
+                # print('sensitivity1',sensitivity)
             sigma = sensitivity * math.sqrt(2 * math.log(1.25 / delta)) / self.conf.epsilon
             out = torch.normal(mean=x, std=sigma)
             noisy_gradients.append(out)

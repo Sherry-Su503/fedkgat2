@@ -569,12 +569,13 @@ def debug_parameter(conf):
     conf.same_arch=True
     conf.k_list= [1,2,5,10,20, 50, 100]
     conf.local_batch_size = None
-    conf.epsilon = 10.0  # 隐私预算
+    conf.ldp = "gaussian"   # gaussian  laplace
+    conf.epsilon = 1.0  # 隐私预算
     conf.sensitivity = 1.0
     conf.scale1 = 1e-2
     conf.scale2 = 1e-3
     # conf.experiment=f'fedkgcn_ldp3_{conf.data}_lr_0.01_λ_{conf.scale1}/{conf.scale2}'
     #v1----使用全部交互项目聚合用户向量
     # conf.experiment=f'fedGnn_all_{conf.data}_lr_{conf.lr}'
-    conf.experiment=f'fedGnn_all_ldp_{conf.data}_lr_{conf.lr}_e_{conf.epsilon}'
+    conf.experiment=f'fedGnn_all_{conf.data}_lr_{conf.lr}_ldp_{conf.ldp}_e_{conf.epsilon}'
     return conf
