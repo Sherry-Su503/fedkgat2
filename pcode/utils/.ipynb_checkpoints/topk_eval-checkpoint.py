@@ -102,7 +102,7 @@ class TopkEval():
                     batch_size=n_item*10000
                 # print('batch_size',batch_size)
                 # print('self.test_dataset',len(self.test_dataset))
-                for data_batch in DataLoader(dataset=self.test_dataset, batch_size=100, shuffle=False):
+                for data_batch in DataLoader(dataset=self.test_dataset, batch_size=65536, shuffle=False):
                     data_batch= data_batch.to(device)
                     # print('eval--data_batch[:, 0]',data_batch[:, 0],data_batch[:, 0].shape )
                     # print('data_batch[:, 1]',data_batch[:, 1],data_batch[:, 1].shape)

@@ -226,7 +226,16 @@ class KGCN_kg(torch.nn.Module):
             # change to [batch_size, 1]
             item_ids = item_ids.clone ().reshape ((-1, 1))
             return item_ids, target
-
+    def _get_items_by_master(self, dataset):
+        '''用于服务器端模型获取dataset_dict'''
+        with torch.no_grad ():
+        # 检查是否已有缓存
+            if not hasattr (self, "dataset_dict"):
+                self.dataset_dict = {
+                     idx[0]: [torch.tensor (df["itemID"].values),
+                                torch.tensor (df["label"].values, dtype=torch.float)]
+                    for idx, df in dataset.df.groupby (["userID"])}
+    
     def _get_neighbors(self, v):
         '''
         v is batch sized indices for items

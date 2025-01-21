@@ -51,5 +51,13 @@ python run.py --arch kgcn --complex_arch master=kgcn_kg,worker=kgcn_aggregate --
 
 报错现存不够，需要减小批次
 
-movie  --n-client 137728
-python run.py --arch kgcn --complex_arch master=kgcn_kg,worker=kgcn_aggregate --experiment serial --data movie --pin_memory True --batch_size 32 --num_workers 1 --partition_data non_iid_dirichlet --non_iid_alpha 1 --train_data_ratio 1 --val_data_ratio 0 --n_clients 137728 --participation_ratio 1 --n_comm_rounds 2000 --local_n_epochs 1 --world_conf 0,0,1,1,100 --on_cuda True --fl_aggregate scheme=federated_average --optimizer adam --lr 5e-4 --local_prox_term 0 --lr_warmup False --lr_warmup_epochs 5 --lr_warmup_epochs_upper_bound 150 --lr_scheduler MultiStepLR --lr_decay 0.1 --weight_decay 1e-4 --use_nesterov False --momentum_factor 0 --track_time False --display_tracked_time False --hostfile hostfile --manual_seed 7 --pn_normalize True --same_seed_process False --python_path /root/miniconda3/bin/python
+movie  --n-client 137420
+train_set len 10795597
+test_set  len 2698867
+python run.py --arch kgcn --complex_arch master=kgcn_kg,worker=kgcn_aggregate --experiment serial --data movie --pin_memory True --batch_size 32 --num_workers 1 --partition_data non_iid_dirichlet --non_iid_alpha 1 --train_data_ratio 1 --val_data_ratio 0 --n_clients 137420 --participation_ratio 1 --n_comm_rounds 2000 --local_n_epochs 1 --world_conf 0,0,1,1,100 --on_cuda True --fl_aggregate scheme=federated_average --optimizer adam --lr 5e-4 --local_prox_term 0 --lr_warmup False --lr_warmup_epochs 5 --lr_warmup_epochs_upper_bound 150 --lr_scheduler MultiStepLR --lr_decay 0.1 --weight_decay 1e-4 --use_nesterov False --momentum_factor 0 --track_time False --display_tracked_time False --hostfile hostfile --manual_seed 7 --pn_normalize True --same_seed_process False --python_path /root/miniconda3/bin/python
+
+
+
+n-iter=2,聚合之后张量形状报错
+[1,19,16]正常
+[1,361,16]聚合迭代2次后,无法reshape([19,16])
