@@ -24,9 +24,9 @@ def get_args():
     parser = add_argument()
     conf=parse_args_with_yaml(parser)
     set_environ()
-    debug_parameter(conf)
     complete_missing_config(conf)
     experiment_paramenter(conf)
+    debug_parameter(conf)
     validate_config(conf)
     return conf
 
@@ -521,7 +521,7 @@ def set_environ():
 def experiment_paramenter(conf):
     if conf.data == 'music':
         conf.neighbor_sample_size = 8
-        conf.dim = 16
+        conf.dim = 16 #16
         conf.n_iter = 1 # 迭代次数
         conf.weight_decay = 1e-5
         # conf.lr = 5e-5
@@ -529,30 +529,30 @@ def experiment_paramenter(conf):
         conf.batch_size = 32
     elif conf.data == 'book':
         conf.neighbor_sample_size = 8
-        conf.dim = 64
+        conf.dim = 16 #64
         conf.n_iter = 1
         conf.weight_decay = 2e-5
-        conf.lr = 2e-4
+        conf.lr = 1e-2
         conf.batch_size = 32
     elif conf.data == 'movie':
         conf.neighbor_sample_size = 4
-        conf.dim = 32
+        conf.dim = 64 #32
         conf.n_iter = 2
         conf.weight_decay = 1e-7
-        conf.lr = 2e-2
+        conf.lr =1e-2
         conf.batch_size = 32
 
 # add debug environment
 def debug_parameter(conf):
     # debug
-    # debug=False
-    debug=True
+    debug=False
+    # debug=True
 
     # conf.data = 'book'
     if debug==True:
         os.environ['WANDB_MODE'] = 'offline'
-        conf.n_participated = 32
-        conf.workers = 32
+        conf.n_participated = 20
+        conf.workers = 20
         conf.validation_interval = 1
         conf.topk_eval_interval = 1
     else:
@@ -561,18 +561,21 @@ def debug_parameter(conf):
         conf.validation_interval = 10
         conf.topk_eval_interval =30
     conf.train_fast = True
-    conf.backend = "gloo"
+    conf.backend = "gloo" 
 
     conf.n_comm_rounds = 2000*32
-    conf.aggregator = "sum"
+    conf.aggregator = "neighbor"
     conf.same_arch=True
     conf.k_list= [1,2,5,10,20, 50, 100]
     conf.local_batch_size = None
+    conf.ldp = "laplace"   # gaussian  laplace
     conf.epsilon = 2.0  # 隐私预算
     conf.sensitivity = 1.0
-    conf.scale1 = 5e-3
-    conf.scale2 = 5e-5
-    # conf.experiment=f'fedkgcn_{conf.data}_lr_0.01'
-    conf.experiment=f'fedkgcn_ldp3_{conf.data}_lr_0.01_e_{conf.epsilon}'
+    conf.scale1 = 1e-2
+    conf.scale2 = 1e-3
     # conf.experiment=f'fedkgcn_ldp3_{conf.data}_lr_0.01_λ_{conf.scale1}/{conf.scale2}'
+    #v1----使用全部交互项目聚合用户向量
+    # conf.experiment=f'fedGnn_all_{conf.data}_lr_{conf.lr}'
+    # conf.experiment=f'kg_fedperGnn_all_{conf.data}_lr_{conf.lr}_ldp_{conf.ldp}_e_{conf.epsilon}'
+    conf.experiment=f'kg_fedperGnn_all_{conf.data}_dim_{conf.dim}_aggre_{conf.aggregator}_ldp_after_U'
     return conf

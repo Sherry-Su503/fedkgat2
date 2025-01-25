@@ -23,6 +23,7 @@ class Aggregator(torch.nn.Module):
         self.dim = dim  # 16
         # 根据 aggregator 的选择，初始化了不同的 Linear 层
         if aggregator == 'concat':
+            # print('---------------------------------------dd',aggregator)
             self.weights = torch.nn.Linear(2 * dim, dim, bias=True) #当前节点和邻居节点特征拼接
         else:
             self.weights = torch.nn.Linear(dim, dim, bias=True)
@@ -157,7 +158,8 @@ class KGCN_kg(torch.nn.Module):
         
         # 先用原始的user_embeddings用于协助项目item_embeddings聚合
         # 再用原始的item_embeddings_u聚合user_embeddings
-        user_embeddings = self.aggregator2(item_embeddings_u,user_embeddings)
+        # user_embeddings = self.aggregator2(item_embeddings_u,user_embeddings)
+        user_embeddings = self.aggregator2(item_embeddings,user_embeddings)
 
         
         scores = (user_embeddings * item_embeddings).sum (dim=1)  # 计算评分：计算用户与聚合后的实体嵌入的相似度（点积）

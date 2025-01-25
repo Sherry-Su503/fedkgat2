@@ -128,6 +128,15 @@ class RecommendationDS(data.Dataset):
         self.user_num = self.df["userID"].max () + 1
         for user_id in range(self.user_num):
             self.index[user_id] = self.df[self.df.userID == user_id].index
+            
+            
+#         #高效的方式：
+#          # 通过 groupby 进行分组并为每个用户生成索引
+#         for user_id, group in self.df.groupby(self.df['userID']):
+#             self.index[user_id] = group.index.tolist()
+
+#         # 获取用户数量
+#         self.user_num = self.df["userID"].nunique()  # 使用 nunique() 来获取唯一用户数量
 
     def _encoding(self):
         '''
