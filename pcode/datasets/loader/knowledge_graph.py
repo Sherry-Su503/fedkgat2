@@ -118,16 +118,12 @@ class RecommendationDS(data.Dataset):
         self.idx = self.df.index
         self.index = defaultdict(list)
         # self.user_num = self.df.userID.max() + 1
-        # print(self.df.head())
-        # print(self.df[self.df['userID'] == 378])
-        # print(self.df.info())
-        # print(self.df["userID"].apply(type).unique())  # 查看所有数据类型
-        
-        # print(self.df["userID"].unique())  # 查看所有唯一值
-        # print(self.df["userID"].max ())
-        self.user_num = self.df["userID"].max () + 1
-        for user_id in range(self.user_num):
-            self.index[user_id] = self.df[self.df.userID == user_id].index
+         # 通过 groupby 进行分组并为每个用户生成索引
+        for user_id, group in self.df.groupby(self.df['userID']):
+            self.index[user_id] = group.index.tolist()
+
+        # 获取用户数量
+        self.user_num = self.df["userID"].nunique()  # 使用 nunique() 来获取唯一用户数量
 
     def _encoding(self):
         '''

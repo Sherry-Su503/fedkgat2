@@ -7,10 +7,9 @@ import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
 from math import ceil
-import math
+import numpy as np
 
 import pcode.create_metrics as create_metrics
-import pcode.create_dataset as create_dataset
 import pcode.create_model as create_model
 import pcode.datasets.mixup_data as mixup
 import pcode.local_training.compressor as compressor
@@ -39,18 +38,9 @@ class Worker(object):
 
         # create dataset (as well as the potential data_partitioner) for training.
         # dist.barrier()
-        # 本地：初始化数据集
-        self.dataset = create_dataset.define_dataset(conf, data=conf.data)
-        # dist.barrier()
-        self.conf.kg = self.dataset["train"].get_kg()
+        # self.dataset = create_dataset.define_dataset(conf, data=conf.data)
+        # self.conf.kg = self.dataset["train"].get_kg()
         self.arch = None
-        # 初始化主模型
-        _, self.model = create_model.define_model (
-            conf, to_consistent_model=False, arch = conf.arch_info["master"]
-        )
-        print ('worker init_model---------------------------------------')
-        # dist.barrier()
-        print (self.dataset["train"])
         # self.kg = models.__dict__['knowledge_graph'](kg, num_user, num_ent, num_rel).cuda()
         # _, self.data_partitioner = create_dataset.define_data_loader(
         #     self.conf,
@@ -80,9 +70,7 @@ class Worker(object):
         )
 
     def run(self):
-        # dist.barrier()
         while True:
-            dist.barrier()
             self._listen_to_master()
 
             # check if we need to terminate the training or not.
@@ -119,16 +107,13 @@ class Worker(object):
 
         if output_list != None:
             if output_list['model']:
-                self.state_dict = output_list['model']
-                # self.model=output_list['model']
-                # self.state_dict= self.model.state_dict()
-                self.model.load_state_dict(self.state_dict)
+                self.model=output_list['model']
+                self.state_dict= self.model.state_dict()
             else:
-                pass
-                # self.model.load_state_dict(self.state_dict)
+                self.model.load_state_dict(self.state_dict)
             # 拆包（unpacking）：*self.input 表示将 output_list['input'] 中的前 n-1 个元素赋值给 self.input
             # entities, relations, targets
-            # *self.input, self.target = output_list['input']
+            *self.input, self.target = output_list['input']
 
         # self.conf.logger.log(
         #     f"Worker-{self.conf.graph.worker_id} (client-{self.conf.graph.client_id}) received the model ({output_list['model']}) and embedding from Master."
@@ -143,21 +128,16 @@ class Worker(object):
             # 设置 self.training=True。
             # 递归地对所有子模块（如 self.aggregator）也调用 train()，从而切换所有子模块到训练模式。
             self.model.train()
-            
-            # 获取本地交互数据
-            self.item_ids, self.target = self.model._get_items (self.conf.graph.client_id, self.dataset["train"],
-                                                              self.conf.local_batch_size)
+
             # init the model and dataloader.
             if self.conf.graph.on_cuda:
                 self.model = self.model.to("cuda")
-                self.item_ids = self.item_ids.to("cuda")
+                for i, input in enumerate(self.input):
+                    if hasattr(input, "to"):
+                        self.input[i]=input.to("cuda")
+                    if isinstance(input, list):
+                        self.input[i] =[t.to("cuda") if hasattr(t, "to") else t for t in input]
                 self.target = self.target.to("cuda")
-                # for i, input in enumerate(self.input):
-                #     if hasattr(input, "to"):
-                #         self.input[i]=input.to("cuda")
-                #     if isinstance(input, list):
-                #         self.input[i] =[t.to("cuda") if hasattr(t, "to") else t for t in input]
-                # self.target = self.target.to("cuda")
 
             # define optimizer, scheduler and runtime tracker.
 
@@ -169,14 +149,12 @@ class Worker(object):
             #     f"Worker-{self.conf.graph.worker_id} (client-{self.conf.graph.client_id}) enters the local training phase (current communication rounds={self.conf.graph.comm_round} n_local_epochs={self.n_local_epochs})."
             # )
             running_loss = 0.0
-
             for epoch in range(self.n_local_epochs):
                 # refresh the logging cache at the end of each epoch.
                 self.optimizer.zero_grad()
                 # 调用 KGCN_aggregator.forward 方法
                 # output 是一个一维张量，大小为 self.batch_size。
-                output = self.model (torch.tensor ([self.conf.graph.client_id]).to ('cuda:0'), self.item_ids)
-                # output = self.model(torch.tensor([self.conf.graph.client_id]).to('cuda:0'), *self.input) #前向传播
+                output = self.model(torch.tensor([self.conf.graph.client_id]).to('cuda:0'), *self.input) #前向传播
                 # 前向传播（forward）时，input 中的嵌入向量不会改变，但它们会参与计算图构建，允许后续的梯度计算。
                 # 后向传播和优化器更新阶段，如果这些嵌入向量是可学习参数，它们的值可能会更新。
                 # print(f"对模型输出--{output}和真实标签self.target--{self.target}计算损失.")
@@ -277,24 +255,23 @@ class Worker(object):
 
     def _send_model_to_master(self):
         # dist.monitored_barrier()
-        comm_device='cuda'
+        comm_device='cpu'
         if self.conf.graph.client_id != -1:
             gather_dict = {}
-            # flatten_model = TensorBuffer(list(self.model.state_dict().values()))
-            # print('_send_model_to_master,self.model.parameters()',self.model.parameters())
-            # p_list =[param for param in self.model.parameters()]
-            # print('params len',len(p_list))
-            # for param in p_list:
-            #     print('param',param)
-            #     print('param.grad',param.grad)
+#             gather_dict['model_grad']=[param.grad.to(comm_device) for param in self.model.parameters()]
+            
+#             # self.usr,self.ent,self.rel的梯度
+#             gather_dict['embeddings_grad']= self.model.get_embed_grad() if self.conf.graph.client_id != -1 else [None] * 3
+            # print('嵌入层梯度',gather_dict['embeddings_grad'])
+            # print('嵌入层梯度noise',self._add_Laplace_noise(gather_dict['embeddings_grad']))
+            # gather_dict['embeddings_grad']=
             # breakpoint()
-            # gather_dict['model_grad']=[param.grad.to(comm_device) for param in self.model.parameters()]
             model_grad = [param.grad.to(comm_device) for param in self.model.parameters()]
-            gather_dict['model_grad']=[grad.to('cpu') for grad in self._add_noise(model_grad)]
+            gather_dict['model_grad']=self._add_Laplace_noise3(model_grad)
             # self.usr,self.ent的梯度
             # gather_dict['embeddings_grad']= self.model.get_embed_grad() if self.conf.graph.client_id != -1 else [None] * 2
-            embeddings_grad = self.model.get_embed_grad() if self.conf.graph.client_id != -1 else [None] * 3
-            gather_dict['embeddings_grad']= [grad.to('cpu') for grad in self._add_noise(embeddings_grad)]
+            embeddings_grad = self.model.get_embed_grad() if self.conf.graph.client_id != -1 else [None] * 2
+            gather_dict['embeddings_grad']= self._add_Laplace_noise3(embeddings_grad)
         else:
             gather_dict=None
 
@@ -338,13 +315,6 @@ class Worker(object):
     def _is_finished_one_comm_round(self):
         return True if self.conf.epoch_ >= self.conf.local_n_epochs else False
     
-    def _add_noise(self, grads):
-        if self.conf.ldp == 'laplace':
-            return self._add_Laplace_noise(grads)
-        if self.conf.ldp == 'gaussian':
-            return self._add_gaussian_noise(grads)
-        else:
-            return grads
     
     def _add_Laplace_noise(self, gradients):
         '''对多个不同形状的梯度替换为均值为原始值的拉普拉斯噪声'''
@@ -354,21 +324,11 @@ class Worker(object):
         # 遍历每个梯度，添加噪声
         for x in gradients:
             # 添加拉普拉斯噪声
-            # print(x.size())
-            tup = x.size()
-            if len(tup) >1:
-                 d = tup[1]
-            else:
-                 d = tup[0]
-            # breakpoint()
-            sensitivity = torch.abs(x.mean()) * d 
-            # sensitivity = (np.abs(x.mean()).item())*d
-            # sensitivity = ((x.max().item())-(x.min().item()))/d
-            scale_laps = sensitivity / self.conf.epsilon
             # print('scale==',scale,sensitivity,d,(beta - alpha))
-            noisy_x  = torch.distributions.Laplace(x, scale_laps).sample()  # 创建拉普拉斯分布, 生成带噪声的梯度
+            noisy_x  = torch.distributions.Laplace(x, self.conf.sensitivity / self.conf.epsilon).sample()  # 创建拉普拉斯分布, 生成带噪声的梯度
             # 对噪声进行截断，确保在 alpha 和 beta 之间
             # noisy_x = torch.clip(noisy_x, min=alpha, max=beta) 
+            
             noisy_gradients.append(noisy_x)
             
         return noisy_gradients
@@ -398,31 +358,33 @@ class Worker(object):
 
         # 遍历每个梯度，添加噪声
         for x in gradients:
-            # sensitivity = (np.abs(x.mean())*10).item()  # 张量的均值
-            sensitivity = x.abs().max().item()  #张量中元素最大值
-            # sensitivity = ((x.max()-x.min())/10).item()
-            scale_laps = sensitivity / self.conf.epsilon
+            # mean_grad = np.mean(x)
+            # print('mean_grad',mean_grad)
+            # x = np.abs(x)
+            sensitivity = np.abs(x.mean()).item()
+            scale_ldp = sensitivity / self.conf.epsilon
+            # print('scale_ldp',scale_ldp)
             # print('sensitivity',sensitivity)
-            # print('scale_laps',scale_laps)
             # breakpoint()
              # 使用 torch.distributions.Laplace(0,scale)
-            # 创建一个与 gradients 形状相同的张量，值为零
+            # 创建一个与 x 形状相同的张量，值为零
             noise = torch.zeros_like(x)
             # 对非零梯度添加噪声，均值为该梯度的噪声
             non_zero_mask = x != 0  # 找到非零梯度的位置
 
             # 为非零梯度的元素生成拉普拉斯噪声，均值为该元素值，尺度为 scale
-            laplace_dist_non_zero = torch.distributions.Laplace(loc=x, scale=scale_laps)
+            # laplace_dist_non_zero = torch.distributions.Laplace(loc=x, scale=self.conf.scale1)
+            laplace_dist_non_zero = torch.distributions.Laplace(loc=x, scale=scale_ldp)
             noise[non_zero_mask] = laplace_dist_non_zero.sample()[non_zero_mask]
 
             # 对零梯度添加噪声，均值为零
-            laplace_dist_zero = torch.distributions.Laplace(loc=torch.zeros_like(x), scale=scale_laps)
+            # laplace_dist_zero = torch.distributions.Laplace(loc=torch.zeros_like(x), scale=self.conf.scale2)
+            laplace_dist_zero = torch.distributions.Laplace(loc=torch.zeros_like(x), scale=scale_ldp)
             noise[~non_zero_mask] = laplace_dist_zero.sample()[~non_zero_mask]
             noisy_gradients.append(noise)
 
         # 返回带噪声的梯度
         return noisy_gradients
-    
     
     def _add_random_noise(self, gradients):
         '''随机扰动'''
@@ -439,30 +401,4 @@ class Worker(object):
             noisy_gradients.append(noise+x)
 
         # 返回带噪声的梯度
-        return noisy_gradients
-    
-    def _add_gaussian_noise(self, gradients):
-        '''添加高斯噪声'''
-        delta = 1e-3
-        noisy_gradients = []
-        for x in gradients:
-            # print('X',x)
-            # len_interval = x.max()-x.min()
-            len_interval = torch.abs(x.mean())
-            # print('len_interval',len_interval)
-            if torch.is_tensor(len_interval) > 1:
-                sensitivity = torch.norm(len_interval, p=2)
-                # print('sensitivity1',sensitivity)
-            else:
-                tup = x.size()
-                if len(tup) >1:
-                     d = tup[1]
-                else:
-                     d = tup[0]
-                # sensitivity = len_interval * math.sqrt(d)
-                sensitivity = len_interval*d
-                # print('sensitivity1',sensitivity)
-            sigma = sensitivity * torch.sqrt(2 * torch.log(torch.tensor(1.25 / delta))) / self.conf.epsilon
-            out = torch.normal(mean=x, std=sigma)
-            noisy_gradients.append(out)
         return noisy_gradients

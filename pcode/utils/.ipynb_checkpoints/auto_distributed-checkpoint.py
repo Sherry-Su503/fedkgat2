@@ -176,8 +176,8 @@ def decompress_object(compressed_obj):
 def gather_objects(objects_list: object = None, dst: int = 0):
     '''gather_objects 函数用于将多个节点的数据收集到一个指定的目标节点（dst）'''
     # 压缩每个对象
-    # if objects_list is not None:
-    #     objects_list = [compress_object(obj) for obj in objects_list]
+    if objects_list is not None:
+        objects_list = [compress_object(obj) for obj in objects_list]
         
     output_list = [None] * dist.get_world_size()
     # dist.gather_object 是 PyTorch 中的分布式通信操作之一，它允许节点将其数据发送到目标节点。每个节点在调用时会将自己的数据发送给目标节点（dst）
@@ -187,13 +187,13 @@ def gather_objects(objects_list: object = None, dst: int = 0):
         dst=0
     )
     # 目标节点需要解压
-    # output_list = [decompress_object(obj) for obj in output_list if obj is not None]
+    output_list = [decompress_object(obj) for obj in output_list if obj is not None]
     return output_list
 
 def scatter_objects(scatter_list: List[object] = None, src: int = 0):
     # 压缩源节点的对象
-    # if scatter_list is not None:
-    #     scatter_list = [compress_object(obj) for obj in scatter_list]
+    if scatter_list is not None:
+        scatter_list = [compress_object(obj) for obj in scatter_list]
     output_list = [None] #初始化输出列表
     
     # 设置分发对象列表
@@ -205,7 +205,7 @@ def scatter_objects(scatter_list: List[object] = None, src: int = 0):
     # PyTorch 分布式通信库中的 dist.scatter_object_list
     # 用于在分布式训练中将一组 Python 对象从指定的源节点（src）分发到所有参与的节点。每个目标节点接收到一个对应的对象。
     dist.scatter_object_list(output_list, object_list, src)
-    # output_list = [decompress_object(obj) for obj in output_list if obj is not None]
+    output_list = [decompress_object(obj) for obj in output_list if obj is not None]
     return output_list
 
 import os

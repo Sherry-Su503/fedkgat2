@@ -134,7 +134,6 @@ class Master(object):
             )
             print('self.dataset["test"]',self.dataset["test"])
             self.test_loaders = [test_loader]
-        # dist.barrier()
 
     def init_parameters(self, conf):
         # some initializations.
@@ -161,7 +160,6 @@ class Master(object):
         _, self.master_model = create_model.define_model(
             conf, to_consistent_model=False
         )
-        self.master_model._get_items_by_master(self.dataset["train"])
         # 确定客户端架构:所有客户端的架构被放入一个集合中。如果多个客户端使用相同的架构，则该架构只会在集合中出现一次。
         self.used_client_archs = set(
             [
@@ -203,10 +201,8 @@ class Master(object):
         # conf.logger.log(
         #     f"Master initialize the clientid2arch mapping relations: {self.clientid2arch}."
         # )
-        # dist.barrier()
 
     def run(self):
-        # dist.barrier()
         # run 方法实现了一个用于联邦学习的循环过程，主要包括通信轮次的管理、客户端选择、模型传递、聚合、早停检测等操作。
         for comm_round in range(1, 1 + self.conf.n_comm_rounds):
             # 循环遍历 comm_round（通信轮次）
@@ -232,7 +228,6 @@ class Master(object):
                 # detect early stopping.检测是否满足早停条件，如果满足则提前结束训练
                 # self._check_early_stopping()
                 # get current workers' client id.
-                # dist.barrier()
 
                 # init the activation tensor and broadcast to all clients (either start or stop).激活当前选定的客户端
                 self._activate_selected_clients(
@@ -322,25 +317,25 @@ class Master(object):
         # the master_model can be large; the client_models can be small and different.
         self.conf.logger.log(f"Master send the models to workers.")
         scatter_list = []
-        state_dict = self.master_model.state_dict()
-        # self.conf.logger.log(f"tMaster send the updated models params-- {state_dict} to clients.")
         for worker_rank, selected_client_id in enumerate(selected_client_ids, start=1):
             # transfer parameters if new comm_round and client arch not changed.
             distribut_dict = {}
             if selected_client_id != -1:
-                # 只下发，模型的参数
-                distribut_dict['model'] = state_dict
-                # item_ids, targets = self.master_model._get_items(selected_client_id, self.dataset["train"], self.conf.local_batch_size)
-                # distribut_dict['input'] = [item_ids,targets]
+                distribut_dict['model'] = self.master_model
+                item_ids, targets = self.master_model._get_items(selected_client_id, self.dataset["train"], self.conf.local_batch_size)
+                distribut_dict['input'] = [item_ids,targets]
+                # print('_send_model_to_selected_clients--item_ids',item_ids,item_ids.shape)
+                # entities,relations = self.master_model._get_neighbors(item_ids)
+                # distribut_dict['input'] = [entities,relations,targets]
                 scatter_list.append(distribut_dict)
             else:
                 scatter_list.append(None)
-            # self.conf.logger.log (f"\tMaster send the current model={client_arch} to process_id={worker_rank}")
+            self.conf.logger.log (f"\tMaster send the current model= to process_id={worker_rank}")
         scatter_objects(scatter_list)
 
         self.last_comm_round = self.conf.graph.comm_round
         self.conf.logger.log(
-            f"\tMaster has send the current model to client."
+            f"\tMaster send the current model to client."
         )
         # dist.monitored_barrier()
 

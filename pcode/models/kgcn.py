@@ -3,7 +3,6 @@ from collections import defaultdict
 
 import torch
 import torch.nn.functional as F
-import math
 
 __all__ = ["kgcn", "kgcn_aggregate", "kgcn_kg"]
 
@@ -24,6 +23,7 @@ class Aggregator(torch.nn.Module):
         self.dim = dim  # 16
         # 根据 aggregator 的选择，初始化了不同的 Linear 层
         if aggregator == 'concat':
+            # print('---------------------------------------dd',aggregator)
             self.weights = torch.nn.Linear(2 * dim, dim, bias=True) #当前节点和邻居节点特征拼接
         else:
             self.weights = torch.nn.Linear(dim, dim, bias=True)
@@ -33,6 +33,7 @@ class Aggregator(torch.nn.Module):
         # 前向传播函数,act：激活函数（如 ReLU、Sigmoid 等）
         # self_vectors：当前节点的特征向量（形状为 [batch_size, 1, dim]）。
         batch_size = user_embeddings.size(0)
+        # print('Aggregator--user_embeddings',user_embeddings)
         if batch_size != self.batch_size:
             self.batch_size = batch_size
 
@@ -49,13 +50,7 @@ class Aggregator(torch.nn.Module):
         else:
             output = neighbors_agg.reshape((-1, self.dim)) # 只使用聚合后的邻居特征
 
-        # print(output.shape)  # 打印 output 的形状
-        # print(self.weights.in_features)  # 打印 Linear 层的输入维度
         output = self.weights(output) #使用 self.weights（Linear 层）对聚合后的特征进行线性变换，调整特征的维度
-#         try:
-           
-#         except Exception as e:
-#             logging.error(f"An error occurred: {e}")
         # 使用提供的激活函数 act 对输出进行激活处理
         return act(output.reshape((self.batch_size, -1, self.dim)))
 
@@ -81,7 +76,6 @@ class Aggregator(torch.nn.Module):
 
         return neighbors_aggregated
 
-
 class KGCN_kg(torch.nn.Module):
     # sherry-Su基于KGCN模型自己重写
     # 基于知识图谱的图神经网络
@@ -94,17 +88,19 @@ class KGCN_kg(torch.nn.Module):
         self.batch_size = args.batch_size
         self.dim = args.dim
         self.n_neighbor = args.neighbor_sample_size  # 采样邻居个数
-        # self.kg = kg
+        self.kg = kg
         self.device = device
-        # 用于聚合邻居节点特征的模块
-        self.aggregator = Aggregator2(self.batch_size, self.dim)
+        # 用于聚合项目邻居节点特征的模块
+        self.aggregator = Aggregator(self.batch_size, self.dim, args.aggregator)
+         # 用于聚合用户邻居节点特征的模块
+        self.aggregator2 = Aggregator2(self.batch_size, self.dim)
 
-        # self._gen_adj()  # 对KG中的每一个head,固定采样n_neighbor个邻居节点和关系
+        self._gen_adj()  # 对KG中的每一个head,固定采样n_neighbor个邻居节点和关系
         self.id_map = {}
 
         self.usr = nn.Embedding(num_usr, args.dim) #定义了一个用户嵌入层，num_usr 是用户的数量，args.dim 是嵌入的维度
         self.ent = nn.Embedding(num_ent, args.dim) #定义了一个实体嵌入层，num_ent 是实体的数量
-        # self.rel = nn.Embedding(num_rel, args.dim) #定义了一个关系嵌入层，num_rel 是关系的数量
+        self.rel = nn.Embedding(num_rel, args.dim) #定义了一个关系嵌入层，num_rel 是关系的数量
 
     def _gen_adj(self):
         '''
@@ -133,40 +129,40 @@ class KGCN_kg(torch.nn.Module):
                ent_id: [batch_size]
                rel_id: [batch_size]
         '''
-        # print('forward--usr_id',usr_id)
-        # print('forward--item_ids',item_ids)
-        # ent_id,rel_id = self._get_neighbors(item_ids)
-        self.batch_size = len (item_ids[0])
-        usr_id = usr_id.view ((-1, 1))
-        item_ids = item_ids.view ((-1, 1))
-        # user_embeddings = usr_embed[usr_id] #根据用户 ID 获取对应的用户嵌入
-        # print('usr_id',usr_id,usr_id.shape)
-        # print('self.usr.weight',self.usr.weight,self.usr.weight.shape)
-        usr_id = usr_id.to(self.device)
-        item_ids = item_ids.to(self.device)
-        user_embeddings = self.usr(usr_id).squeeze (dim=1)
-        # print('forward--item_ids',item_ids[0].shape)
-        item_embeddings = self.ent(item_ids).squeeze (dim=1)
-        #-----------------------------------kg部分--------------------------------
-        # entities = [entity.to(self.device) for entity in ent_id]
-        # relations = [relation.to(self.device) for relation in rel_id]
-        # entities_embeddings = [self.ent(entity) for entity in entities]  # 为每个实体 ID 查找对应的实体嵌入。
-        # relations_embeddings = [self.rel(relation) for relation in relations]  # 为每个关系 ID 查找对应的关系嵌入。
-        # # 调用 _aggregate 方法，将用户、实体和关系的嵌入作为输入，进行多次聚合，生成新的实体嵌入。
-        # # print('forward--entities_embeddings',entities_embeddings[0].shape)
-        # # print('forward--relations_embeddings',relations_embeddings[0].shape)
-        # item_embeddings = self._aggregate (user_embeddings, entities_embeddings, relations_embeddings)  # 单层加权求和
-        #-----------------------------------kg部分--------------------------------
+        # print('forward--usr_id',usr_id.shape)
         # print('forward--item_ids',item_ids.shape)
-        # print('forward--item_ids',entities[0].shape)
-        # print('forward--item_embeddings1',item_embeddings1.shape)
-        # print('forward--item_embeddings',item_embeddings.shape)
-        user_embeddings = self.aggregator(item_embeddings,user_embeddings)
-        # print('user_embeddings1--', user_embeddings1,user_embeddings1.shape)
-        # print('user_embeddings--', user_embeddings,user_embeddings.shape)
+        ent_id,rel_id = self._get_neighbors(item_ids)
+        self.batch_size = len (ent_id[0])
+        usr_id = usr_id.view ((-1, 1))
+        usr_id = usr_id.to(self.device)
+        
+        item_ids_u = item_ids.view ((-1, 1))
+        item_ids_u = item_ids.to(self.device)
+        user_embeddings = self.usr(usr_id).squeeze (dim=1)
+        # print('forward--user_embeddings  before',user_embeddings.shape)
+        item_embeddings_u = self.ent(item_ids_u).squeeze (dim=1)
+        # print('forward--usr_id',usr_id[0].shape)
+        # # print('forward--item_ids',item_ids[0].shape)
+        # print('forward--ent_id',ent_id[0].shape)
+        # print('forward--user_embeddings  after',user_embeddings.shape)
+
+        entities = [entity.to(self.device) for entity in ent_id]
+        relations = [relation.to(self.device) for relation in rel_id]
+        entities_embeddings = [self.ent(entity) for entity in entities]  # 为每个实体 ID 查找对应的实体嵌入。
+        relations_embeddings = [self.rel(relation) for relation in relations]  # 为每个关系 ID 查找对应的关系嵌入。
+        # 调用 _aggregate 方法，将用户、实体和关系的嵌入作为输入，进行多次聚合，生成新的实体嵌入。
+        # print('forward--entities_embeddings',entities_embeddings[0].shape)
+        # print('forward--relations_embeddings',relations_embeddings[0].shape)
+        item_embeddings = self._aggregate (user_embeddings, entities_embeddings, relations_embeddings)  # 单层加权求和
+        
+        
+        # 先用原始的user_embeddings用于协助项目item_embeddings聚合
+        # 再用聚合了邻居节点的item_embeddings_u聚合user_embeddings
+        # user_embeddings = self.aggregator2(item_embeddings_u,user_embeddings) # 使用未聚合邻居节点的item_embeddings
+        user_embeddings = self.aggregator2(item_embeddings,user_embeddings)
+
+        
         scores = (user_embeddings * item_embeddings).sum (dim=1)  # 计算评分：计算用户与聚合后的实体嵌入的相似度（点积）
-        # scores = (user_embeddings * item_embeddings).sum (dim=1)  # 计算评分：计算用户与聚合后的实体嵌入的相似度（点积）
-        # print('scores1--', torch.sigmoid (scores1),torch.sigmoid (scores1).shape)
         # print('scores--', torch.sigmoid (scores),torch.sigmoid (scores).shape)
         # breakpoint()
         return torch.sigmoid (scores)  # 通过 torch.sigmoid 激活函数映射到 [0, 1] 范围内，表示预测的相似度评分
@@ -199,13 +195,64 @@ class KGCN_kg(torch.nn.Module):
                 entity_vectors_next_iter.append (vector)
             entity_embeddings = entity_vectors_next_iter  # entity_embeddings 被更新为每次迭代后的新嵌入。
         # print('aggregation--self.batch_size, self.dim',self.batch_size, self.dim)
-        # print('aggregation--entity_embeddings',entity_embeddings[0].shape) =pow(self.batch_size,self.n_iter)
-        # self.batch_size = pow(self.batch_size,self.n_iter)
-        # self.batch_size=entity_embeddings[0].shape[1]
+        # print('aggregation--entity_embeddings',entity_embeddings[0].shape)
+
         return entity_embeddings[0].reshape ((self.batch_size, self.dim))  # 回最后一次迭代后的实体嵌入
 
-    def _get_items(self, user_id, dataset,batch_size):
-        '''用于获取tain_set中一个userID所有的交互项itemId  relations'''
+#     def _get_items(self, user_id, dataset,batch_size):
+#         '''用于获取一个userID所有的交互项itemId  relations'''
+#         with torch.no_grad ():
+#         # 检查是否已有缓存
+#             if not hasattr (self, "dataset_dict"):
+#                 self.dataset_dict = {
+#                      idx[0]: [torch.tensor (df["itemID"].values),
+#                                 torch.tensor (df["label"].values, dtype=torch.float)]
+#                     for idx, df in dataset.df.groupby (["userID"])}
+#                     # print(self.dataset_dict.keys())  # 打印 dataset_dict 的所有 user_id 键
+#             item_ids = self.dataset_dict[user_id][0]
+#             target = self.dataset_dict[user_id][1]
+#             if batch_size == None or batch_size > item_ids.size (0):
+#                 self.batch_size = item_ids.size (0)
+#             else:
+#                 idx = torch.randperm (item_ids.size (0))
+#                 item_ids = item_ids[idx[:batch_size]]
+#                 target = target[idx[:batch_size]]
+#                 self.batch_size = batch_size
+#             # change to [batch_size, 1]
+#             item_ids = item_ids.clone ().reshape ((-1, 1))
+#             return item_ids, target
+    def _get_items(self, user_id, dataset, batch_size):
+        '''用于获取一个userID所有的交互项itemId  relations'''
+        with torch.no_grad():
+            # 检查是否已有缓存
+            if not hasattr(self, "dataset_dict"):
+                # 将dataset_dict缓存起来，避免重复计算
+                self.dataset_dict = {
+                    idx[0]: [torch.tensor(df["itemID"].values, dtype=torch.long),
+                             torch.tensor(df["label"].values, dtype=torch.float)]
+                    for idx, df in dataset.df.groupby(["userID"])
+                }
+
+            # 获取用户对应的 item_ids 和 target
+            item_ids = self.dataset_dict[user_id][0]
+            target = self.dataset_dict[user_id][1]
+
+            # 如果没有 batch_size 或 batch_size 大于总数，则返回所有项
+            if batch_size is None or batch_size >= item_ids.size(0):
+                self.batch_size = item_ids.size(0)
+                item_ids = item_ids.view(-1, 1)  # reshape为 (batch_size, 1)
+                return item_ids, target
+
+            # 随机选择 batch_size 个 item_id 和 target
+            self.batch_size = batch_size
+            # 使用 torch.randint 进行采样，生成 batch_size 个随机索引
+            idx = torch.randint(0, item_ids.size(0), (batch_size,))  # 返回 batch_size 个随机索引
+            item_ids = item_ids[idx].view(-1, 1)  # 用这些索引从 item_ids 中采样
+            target = target[idx]  # 用这些索引从 target 中采样
+
+            return item_ids, target
+    def _get_items_by_master(self, dataset):
+        '''用于服务器端模型获取dataset_dict'''
         with torch.no_grad ():
         # 检查是否已有缓存
             if not hasattr (self, "dataset_dict"):
@@ -213,19 +260,6 @@ class KGCN_kg(torch.nn.Module):
                      idx[0]: [torch.tensor (df["itemID"].values),
                                 torch.tensor (df["label"].values, dtype=torch.float)]
                     for idx, df in dataset.df.groupby (["userID"])}
-                    # print(self.dataset_dict.keys())  # 打印 dataset_dict 的所有 user_id 键
-            item_ids = self.dataset_dict[user_id][0]
-            target = self.dataset_dict[user_id][1]
-            if batch_size == None or batch_size > item_ids.size (0):
-                self.batch_size = item_ids.size (0)
-            else:
-                idx = torch.randperm (item_ids.size (0))
-                item_ids = item_ids[idx[:batch_size]]
-                target = target[idx[:batch_size]]
-                self.batch_size = batch_size
-            # change to [batch_size, 1]
-            item_ids = item_ids.clone ().reshape ((-1, 1))
-            return item_ids, target
 
     def _get_neighbors(self, v):
         '''
@@ -251,7 +285,7 @@ class KGCN_kg(torch.nn.Module):
 
     def get_embed_grad(self):
         '''用于客户端获取嵌入层的梯度，发送给服务器'''
-        return [self.usr.weight.grad, self.ent.weight.grad]
+        return [self.usr.weight.grad, self.ent.weight.grad, self.rel.weight.grad]
 
     def recode_grad(self, flatten_local_models):
         # 梯度聚合：更新主模型（master_model）的梯度信息
@@ -299,10 +333,10 @@ class KGCN_kg(torch.nn.Module):
             for user_id, grad in flatten_local_models.items():
                 num = len(self.dataset_dict[user_id][0])  # 每个用户的样本数
                 model_grad = grad['model_grad']
-                usr_grad, ent_grad = grad['embeddings_grad']
+                usr_grad, ent_grad, rel_grad = grad['embeddings_grad']
                 self.usr.weight.grad += usr_grad * (num/totle_interactions)
                 self.ent.weight.grad += ent_grad * (num/totle_interactions)
-                # self.rel.weight.grad += rel_grad * (num/totle_interactions)
+                self.rel.weight.grad += rel_grad * (num/totle_interactions)
                 for i,param in enumerate(self.aggregator.parameters()):
                     param.grad+= model_grad[i]*(num/totle_interactions)
 
