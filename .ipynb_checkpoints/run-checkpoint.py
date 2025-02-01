@@ -11,7 +11,7 @@ from parameters import get_args, init_config
 from pcode.master import Master
 from pcode.utils.auto_distributed import *
 from pcode.worker import Worker
-
+import time
 
 # -*- coding: utf-8 -*-
 
@@ -19,23 +19,28 @@ from pcode.worker import Worker
 def run(conf):
     # federated learning  function
     # conf.graph.rank 是进程的排名？
+    # 主节点，和工作节点
     process = Master(conf) if conf.graph.rank == 0 else Worker(conf)
     process.run()
 
 
 def init_process(rank, size, fn, conf):
+    '''用于初始化分布式训练的环境，设置进程组，加载配置并启动联邦学习（或分布式训练）的任务。'''
     # init the distributed world.
     try:
+        # 设置 MASTER_ADDR 和 MASTER_PORT 环境变量，指定主节点的地址和端口
         os.environ['MASTER_ADDR'] = '127.0.0.1'
         os.environ['MASTER_PORT'] = conf.port
-        dist.init_process_group(conf.backend, rank=rank, world_size=size)
+        # 初始化分布式进程组，使用指定的后端（如 gloo 或 nccl）
+        dist.init_process_group(conf.backend, rank=rank, world_size=size,timeout=timedelta(minutes=30))
     except AttributeError as e:
         print(f"failed to init the distributed world: {e}.")
         conf.distributed = False
     try:
+        # 忽略 UserWarning 警告，避免干扰输出
         warnings.filterwarnings("ignore", category=UserWarning)
 
-        # init the config.
+        # init the config.init_config(conf)
         init_config(conf)
 
         # start federated learning.
@@ -69,13 +74,18 @@ def run_mpi():
 
 
 def run_gloo():
-    processes = []
-    for rank in range(size):
-        p = mp.Process(target=init_process, args=(rank, size, run, conf))
-        p.start()
+    '''启动多个进程'''
+    processes = [] #用于存储所有进程对象
+    for rank in range(size): # 迭代根据大小（`size`）来启动进程
+        # 每个进程都会执行 init_process 函数，init_process 是你自己定义的函数，它会在每个进程中被调用。args 是传递给 init_process 函数的参数
+        # rank: 进程的标识符，size: 总进程数
+        # run: 分布式训练的核心任务，通常是训练模型的代码
+        # conf: 配置对象，包含了所有的训练参数和设置。
+        p = mp.Process(target=init_process, args=(rank, size, run, conf)) # 为每个进程创建一个 Process 实例
+        p.start() # 启动进程
         processes.append(p)
-    for p in processes:
-        p.join()
+    for p in processes: # 等待所有进程执行完毕
+        p.join() # 等待每个进程完成
 
 if __name__ == "__main__":
     # get config.

@@ -32,7 +32,7 @@ def init_process(rank, size, fn, conf):
         os.environ['MASTER_ADDR'] = '127.0.0.1'
         os.environ['MASTER_PORT'] = conf.port
         # 初始化分布式进程组，使用指定的后端（如 gloo 或 nccl）
-        dist.init_process_group(conf.backend, rank=rank, world_size=size,timeout=timedelta(minutes=10))
+        dist.init_process_group(conf.backend, rank=rank, world_size=size,timeout=timedelta(minutes=30))
     except AttributeError as e:
         print(f"failed to init the distributed world: {e}.")
         conf.distributed = False

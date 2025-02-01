@@ -159,8 +159,39 @@ def recv_list(src, group=None, tag=0, trans_device=None, restore_device=False):
         start += numel
     return tensor_list
 
-def gather_objects(objects_list: object = None, dst: int = 0):
+def gather_objects(objects_list: object = None, dst: int = 0, batch_size: int = 16):
     '''gather_objects 函数用于将多个节点的数据收集到一个指定的目标节点（dst）'''
+#     total_output_list = []
+#     total_size = len(objects_list)
+#     num_batches = (total_size + batch_size - 1) // batch_size  # 计算总批次数
+    
+#     for batch in range(num_batches):
+#         # 获取当前批次的数据
+#         start = batch * batch_size
+#         end = min((batch + 1) * batch_size, total_size)
+#         batch_objects = objects_list[start:end]
+        
+#         output_list = [None] * dist.get_world_size() if dist.get_rank() == dst else None
+        
+#         try:
+#             dist.gather_object(
+#                 batch_objects,
+#                 output_list,
+#                 dst=dst
+#             )
+#         except Exception as e:
+#             print(f"Error in gathering objects at batch {batch}: {e}")
+#             return []
+        
+#         # 如果是目标节点，处理接收到的数据
+#         if dist.get_rank() == dst:
+#             # 处理批次数据
+#             pass
+        
+#         if output_list is not None:
+#             total_output_list.extend(output_list)
+#     return total_output_list
+    
     output_list = [None] * dist.get_world_size()
     # dist.gather_object 是 PyTorch 中的分布式通信操作之一，它允许节点将其数据发送到目标节点。每个节点在调用时会将自己的数据发送给目标节点（dst）
     dist.gather_object(

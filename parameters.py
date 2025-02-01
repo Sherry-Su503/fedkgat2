@@ -520,7 +520,7 @@ def set_environ():
 
 def experiment_paramenter(conf):
     if conf.data == 'music':
-        conf.neighbor_sample_size = 8
+        conf.neighbor_sample_size = 32
         conf.dim = 16 #16
         conf.n_iter = 1 # 迭代次数
         conf.weight_decay = 1e-5
@@ -528,14 +528,14 @@ def experiment_paramenter(conf):
         conf.lr = 1e-2
         conf.batch_size = 32
     elif conf.data == 'book':
-        conf.neighbor_sample_size = 8
-        conf.dim = 16 #64
+        conf.neighbor_sample_size =16
+        conf.dim = 64 #64
         conf.n_iter = 1
         conf.weight_decay = 2e-5
         conf.lr = 1e-2
         conf.batch_size = 32
     elif conf.data == 'movie':
-        conf.neighbor_sample_size = 4
+        conf.neighbor_sample_size = 16
         conf.dim = 64 #32
         conf.n_iter = 2
         conf.weight_decay = 1e-7
@@ -569,7 +569,7 @@ def debug_parameter(conf):
     conf.k_list= [1,2,5,10,20, 50, 100]
     conf.local_batch_size = None
     conf.ldp = "laplace"   # gaussian  laplace
-    conf.epsilon = 2.0  # 隐私预算
+    conf.epsilon = 1.0  # 隐私预算
     conf.sensitivity = 1.0
     conf.scale1 = 1e-2
     conf.scale2 = 1e-3
@@ -577,5 +577,5 @@ def debug_parameter(conf):
     #v1----使用全部交互项目聚合用户向量
     # conf.experiment=f'fedGnn_all_{conf.data}_lr_{conf.lr}'
     # conf.experiment=f'kg_fedperGnn_all_{conf.data}_lr_{conf.lr}_ldp_{conf.ldp}_e_{conf.epsilon}'
-    conf.experiment=f'kg_fedperGnn_all_{conf.data}_dim_{conf.dim}_aggre_{conf.aggregator}_ldp_after_U'
+    conf.experiment=f'kg_fedperGnn_all_{conf.data}_n_neighbor_{conf.neighbor_sample_size}_aggre_{conf.aggregator}_ldp_after_U'
     return conf
