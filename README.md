@@ -26,8 +26,7 @@ git config --global user.email 2745043515@qq.com
 git config --global user.name Sherry-Su503
   ```
 Sherry-Su503
-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
-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
+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
 
 music   --n-client 1065
 python run.py --arch kgcn --complex_arch master=kgcn_kg,worker=kgcn_aggregate --experiment serial --data music --pin_memory True --batch_size 32 --num_workers 1 --partition_data non_iid_dirichlet --non_iid_alpha 1 --train_data_ratio 1 --val_data_ratio 0 --n_clients 1065 --participation_ratio 1 --n_comm_rounds 2000 --local_n_epochs 1 --world_conf 0,0,1,1,100 --on_cuda True --fl_aggregate scheme=federated_average --optimizer adam --lr 5e-4 --local_prox_term 0 --lr_warmup False --lr_warmup_epochs 5 --lr_warmup_epochs_upper_bound 150 --lr_scheduler MultiStepLR --lr_decay 0.1 --weight_decay 1e-4 --use_nesterov False --momentum_factor 0 --track_time False --display_tracked_time False --hostfile hostfile --manual_seed 7 --pn_normalize True --same_seed_process False --python_path /root/miniconda3/bin/python
