@@ -1,31 +1,18 @@
-# FedRKG: A Privacy-preserving Federated Recommendation Framework via Knowledge Graph Enhancement
+# KG-FedCGNN: 毕业论文
 
-This repository is the official implementation of the paper *FedRKG: A Privacy-preserving Federated Recommendation Framework
+原始代码来自 paper *FedRKG: A Privacy-preserving Federated Recommendation Framework
 via Knowledge Graph Enhancement*.
 
 **Abstract:**
-*Federated Learning* (FL) has emerged as a promising approach for preserving data privacy in recommendation
-systems by training models locally. Recently, *Graph Neural Networks* (GNN) have gained popularity in
-recommendation tasks due to their ability to capture high-order interactions between users and items. However, privacy
-concerns prevent the global sharing of the entire user-item graph. To address this limitation, some methods create
-pseudo-interacted items or users in the graph to compensate for missing information for each client. Unfortunately,
-these methods introduce random noise and raise privacy concerns.
-In this paper, we propose FedRKG, a novel federated recommendation system, where a global *knowledge graph* (KG) is
-constructed and maintained on the server using publicly available item information, enabling higher-order user-item
-interactions.
-On the client side, a relation-aware GNN model leverages diverse KG relationships.
-To protect local interaction items and obscure gradients, we employ pseudo-labeling and *Local Differential
-Privacy* (LDP).
-Extensive experiments conducted on three real-world datasets demonstrate the competitive performance of our approach
-compared to centralized algorithms while ensuring privacy preservation. Moreover, FedRKG achieves an average accuracy
-improvement of 4% compared to existing federated learning baselines.
+
+## 远程仓库分支说明
+**fedgnn_u**: 跨用户隐私保护推荐模型，对应论文FedCGNN模型，适用于Last.fm和Book-Crossing数据集训练（小数据集，联邦通信时直接传输模型）。使用fedcgnn_book\fedcgnn_music镜像
+**fedgnn_u_mv**: 跨用户隐私保护推荐模型_movieLens-20M训练版，对应论文FedCGNN模型，适用于movieLens-20M数据集训练（大数据集，联邦通信时传输模型参数梯度，客户端本地自己初始化模型）。使用fedcgnn_movie镜像
+**fedkgcn**: 本地知识图谱扩展的可解释推荐模型，对应论文KG-FedCGNN模型，适用于Last.fm和Book-Crossing数据集训练（小数据集，联邦通信时直接传输模型）。使用fedkgcn：music+book(20250201保存)镜像
+**Fekgcn_mv**: 本地知识图谱扩展的可解释推荐模型_movieLens-20M训练版，对应论文KG-FedCGNN模型，适用于movieLens-20M数据集训练（大数据集，联邦通信时传输模型参数梯度，客户端本地自己初始化模型）。使用fedkgcn：movie（20250201备份）镜像
+
 ## Requirements
 
-Our implementations heavily rely on `Docker` and the detailed environment setup refers to `Dockerfile` under
-the `../environments` folder.
-
-By running command `docker-compose build` under the folder `environments`, you can build our main docker
-image `pytorch-mpi`.
 
 ## Training and Evaluation
 
