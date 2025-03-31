@@ -405,6 +405,7 @@ class Worker(object):
         # 返回带噪声的梯度
         return noisy_gradients
     
+    
     def _add_random_noise(self, gradients):
         '''随机扰动'''
 
