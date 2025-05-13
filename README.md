@@ -1,4 +1,7 @@
-# KG-FedCGNN: 毕业论文
+# branch:fedgnn_u
+FedCGNN模型，适用于Last.fm和Book-Crossing数据集训练
+
+# KG-FedCGNN
 
 原始代码来自 paper *FedRKG: A Privacy-preserving Federated Recommendation Framework
 via Knowledge Graph Enhancement*.
