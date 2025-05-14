@@ -1,5 +1,10 @@
 # branch:fedkgcn_mv
 KG-FedCGNN模型，适用于movieLens-20M数据集训练
+```bash
+clone https://github.com/Sherry-Su503/fedkgat2.git
+git branch kg-fedcgnn-mv
+git pull origin fedkgat_mv
+```
 
 # KG-FedCGNN
 
