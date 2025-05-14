@@ -9,13 +9,13 @@ via Knowledge Graph Enhancement*.
 **Abstract:**
 
 ## 远程仓库分支说明
-**fedgnn_u**: 跨用户隐私保护推荐模型，对应论文FedCGNN模型，适用于Last.fm和Book-Crossing数据集训练（小数据集，联邦通信时直接传输模型）。使用fedcgnn_book\fedcgnn_music镜像
+**branch:fedgnn_u**: 跨用户隐私保护推荐模型，对应论文FedCGNN模型，适用于Last.fm和Book-Crossing数据集训练（小数据集，联邦通信时直接传输模型）。使用fedcgnn_book\fedcgnn_music镜像
 
-**fedgnn_u_mv**: 跨用户隐私保护推荐模型_movieLens-20M训练版，对应论文FedCGNN模型，适用于movieLens-20M数据集训练（大数据集，联邦通信时传输模型参数梯度，客户端本地自己初始化模型）。使用fedcgnn_movie镜像
+**branch:fedgnn_u_mv**: 跨用户隐私保护推荐模型_movieLens-20M训练版，对应论文FedCGNN模型，适用于movieLens-20M数据集训练（大数据集，联邦通信时传输模型参数梯度，客户端本地自己初始化模型）。使用fedcgnn_movie镜像
 
-**fedkgcn**: 本地知识图谱扩展的可解释推荐模型，对应论文KG-FedCGNN模型，适用于Last.fm和Book-Crossing数据集训练（小数据集，联邦通信时直接传输模型）。使用fedkgcn：music+book(20250201保存)镜像
+**branch:fedkgcn**: 本地知识图谱扩展的可解释推荐模型，对应论文KG-FedCGNN模型，适用于Last.fm和Book-Crossing数据集训练（小数据集，联邦通信时直接传输模型）。使用fedkgcn：music+book(20250201保存)镜像
 
-**Fekgcn_mv**: 本地知识图谱扩展的可解释推荐模型_movieLens-20M训练版，对应论文KG-FedCGNN模型，适用于movieLens-20M数据集训练（大数据集，联邦通信时传输模型参数梯度，客户端本地自己初始化模型）。使用fedkgcn：movie（20250201备份）镜像
+**branch:fekgcn_mv**: 本地知识图谱扩展的可解释推荐模型_movieLens-20M训练版，对应论文KG-FedCGNN模型，适用于movieLens-20M数据集训练（大数据集，联邦通信时传输模型参数梯度，客户端本地自己初始化模型）。使用fedkgcn：movie（20250201备份）镜像
 
 ## Requirements
 
