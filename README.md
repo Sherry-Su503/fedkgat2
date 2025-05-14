@@ -1,31 +1,33 @@
-# FedRKG: A Privacy-preserving Federated Recommendation Framework via Knowledge Graph Enhancement
-
-This repository is the official implementation of the paper *FedRKG: A Privacy-preserving Federated Recommendation Framework
+# KG-FedCGNN
+mian分支原始代码参考了 paper *FedRKG: A Privacy-preserving Federated Recommendation Framework
 via Knowledge Graph Enhancement*.
 
-**Abstract:**
-*Federated Learning* (FL) has emerged as a promising approach for preserving data privacy in recommendation
-systems by training models locally. Recently, *Graph Neural Networks* (GNN) have gained popularity in
-recommendation tasks due to their ability to capture high-order interactions between users and items. However, privacy
-concerns prevent the global sharing of the entire user-item graph. To address this limitation, some methods create
-pseudo-interacted items or users in the graph to compensate for missing information for each client. Unfortunately,
-these methods introduce random noise and raise privacy concerns.
-In this paper, we propose FedRKG, a novel federated recommendation system, where a global *knowledge graph* (KG) is
-constructed and maintained on the server using publicly available item information, enabling higher-order user-item
-interactions.
-On the client side, a relation-aware GNN model leverages diverse KG relationships.
-To protect local interaction items and obscure gradients, we employ pseudo-labeling and *Local Differential
-Privacy* (LDP).
-Extensive experiments conducted on three real-world datasets demonstrate the competitive performance of our approach
-compared to centralized algorithms while ensuring privacy preservation. Moreover, FedRKG achieves an average accuracy
-improvement of 4% compared to existing federated learning baselines.
+KG-FedCGNN代码拉取示例：
+```bash
+git clone https://github.com/Sherry-Su503/fedkgat2.git
+cd fedkgat2
+git branch kg-fedcgnn
+git pull origin fedkgat
+```
+
+## 远程仓库分支说明
+**branch：fedgnn_u**: 跨用户隐私保护推荐模型，对应论文FedCGNN模型，适用于Last.fm和Book-Crossing数据集训练（小数据集，联邦通信时直接传输模型.
+
+**branch：fedgnn_u_mv**: 跨用户隐私保护推荐模型_movieLens-20M训练版，对应论文FedCGNN模型，适用于movieLens-20M数据集训练（大数据集，联邦通信时传输模型参数梯度，客户端本地自己初始化模型.
+
+**branch：fedkgcn**: 本地知识图谱扩展的可解释推荐模型，对应论文KG-FedCGNN模型，适用于Last.fm和Book-Crossing数据集训练（小数据集，联邦通信时直接传输模型）.
+
+**branch：Fekgcn_mv**: 本地知识图谱扩展的可解释推荐模型_movieLens-20M训练版，对应论文KG-FedCGNN模型，适用于movieLens-20M数据集训练（大数据集，联邦通信时传输模型参数梯度，客户端本地自己初始化模型）.
+
+## Environments
+基础镜像信息
+```bash
+PyTorch  2.0.0
+Python  3.8(ubuntu20.04)
+CUDA  11.8
+```
 ## Requirements
-
-Our implementations heavily rely on `Docker` and the detailed environment setup refers to `Dockerfile` under
-the `../environments` folder.
-
-By running command `docker-compose build` under the folder `environments`, you can build our main docker
-image `pytorch-mpi`.
+see  pip_requirements.txt (in branch：fedgnn_u)
 
 ## Training and Evaluation
 
@@ -34,22 +36,23 @@ To train and evaluate the model(s) in the paper, run the following commands.
 python run.py --arch kgcn --complex_arch master=kgcn_kg,worker=kgcn_aggregate --experiment serial --data music --pin_memory True --batch_size 32 --num_workers 1 --partition_data non_iid_dirichlet --non_iid_alpha 1 --train_data_ratio 1 --val_data_ratio 0 --n_clients 1872 --participation_ratio 1 --n_comm_rounds 2000 --local_n_epochs 1 --world_conf 0,0,1,1,100 --on_cuda True --fl_aggregate scheme=federated_average --optimizer adam --lr 5e-4 --local_prox_term 0 --lr_warmup False --lr_warmup_epochs 5 --lr_warmup_epochs_upper_bound 150 --lr_scheduler MultiStepLR --lr_decay 0.1 --weight_decay 1e-4 --use_nesterov False --momentum_factor 0 --track_time False --display_tracked_time False --hostfile hostfile --manual_seed 7 --pn_normalize True --same_seed_process False --python_path /root/miniconda3/bin/python
 ```
 
-```
-git config --global user.email 2745043515@qq.com
-git config --global user.name Sherry-Su503
-  ```
-Sherry-Su503
-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
-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
 
-music   --n-client 1065
+## dataset
+music   --n-client: 1065
+
+```bash
 python run.py --arch kgcn --complex_arch master=kgcn_kg,worker=kgcn_aggregate --experiment serial --data music --pin_memory True --batch_size 32 --num_workers 1 --partition_data non_iid_dirichlet --non_iid_alpha 1 --train_data_ratio 1 --val_data_ratio 0 --n_clients 1065 --participation_ratio 1 --n_comm_rounds 2000 --local_n_epochs 1 --world_conf 0,0,1,1,100 --on_cuda True --fl_aggregate scheme=federated_average --optimizer adam --lr 5e-4 --local_prox_term 0 --lr_warmup False --lr_warmup_epochs 5 --lr_warmup_epochs_upper_bound 150 --lr_scheduler MultiStepLR --lr_decay 0.1 --weight_decay 1e-4 --use_nesterov False --momentum_factor 0 --track_time False --display_tracked_time False --hostfile hostfile --manual_seed 7 --pn_normalize True --same_seed_process False --python_path /root/miniconda3/bin/python
+```
 
 
-book  --n-client 1113
+book  --n-client: 1113
+```bash
 python run.py --arch kgcn --complex_arch master=kgcn_kg,worker=kgcn_aggregate --experiment serial --data book --pin_memory True --batch_size 32 --num_workers 1 --partition_data non_iid_dirichlet --non_iid_alpha 1 --train_data_ratio 1 --val_data_ratio 0 --n_clients 1113 --participation_ratio 1 --n_comm_rounds 2000 --local_n_epochs 1 --world_conf 0,0,1,1,100 --on_cuda True --fl_aggregate scheme=federated_average --optimizer adam --lr 5e-4 --local_prox_term 0 --lr_warmup False --lr_warmup_epochs 5 --lr_warmup_epochs_upper_bound 150 --lr_scheduler MultiStepLR --lr_decay 0.1 --weight_decay 1e-4 --use_nesterov False --momentum_factor 0 --track_time False --display_tracked_time False --hostfile hostfile --manual_seed 7 --pn_normalize True --same_seed_process False --python_path /root/miniconda3/bin/python
+```
 
-报错现存不够，需要减小批次
-
-movie  --n-client 137728
+movie  --n-client: 137728
+```bash
 python run.py --arch kgcn --complex_arch master=kgcn_kg,worker=kgcn_aggregate --experiment serial --data movie --pin_memory True --batch_size 32 --num_workers 1 --partition_data non_iid_dirichlet --non_iid_alpha 1 --train_data_ratio 1 --val_data_ratio 0 --n_clients 137728 --participation_ratio 1 --n_comm_rounds 2000 --local_n_epochs 1 --world_conf 0,0,1,1,100 --on_cuda True --fl_aggregate scheme=federated_average --optimizer adam --lr 5e-4 --local_prox_term 0 --lr_warmup False --lr_warmup_epochs 5 --lr_warmup_epochs_upper_bound 150 --lr_scheduler MultiStepLR --lr_decay 0.1 --weight_decay 1e-4 --use_nesterov False --momentum_factor 0 --track_time False --display_tracked_time False --hostfile hostfile --manual_seed 7 --pn_normalize True --same_seed_process False --python_path /root/miniconda3/bin/python
+```
+
+
