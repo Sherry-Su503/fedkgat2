@@ -1,5 +1,5 @@
-# branch:fedkgcn
-KG-FedCGNN模型，适用于Last.fm和Book-Crossing数据集训练
+# branch:fedkgcn_mv
+KG-FedCGNN模型，适用于movieLens-20M数据集训练
 
 # KG-FedCGNN
 
